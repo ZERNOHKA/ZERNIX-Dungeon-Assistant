@@ -1,0 +1,944 @@
+[
+  {
+    "id": "library_shelf",
+    "titleRu": "Книжная полка / шкаф",
+    "sceneRu": "Библиотека, скрипторий, кабинет мага.",
+    "hidden": false,
+    "biomes": ["dungeon", "urban", "any"],
+    "slots": [
+      {
+        "labelRu": "Уверенно лежит на полке",
+        "isMagic": 0,
+        "nameContainsAny": ["book", "tome"],
+        "maxCostGp": 200,
+        "fallbackNameContainsAny": ["scroll", "parchment", "map"]
+      },
+      {
+        "labelRu": "Между корешками",
+        "isMagic": 0,
+        "nameContainsAny": ["candle", "chalk", "case, map", "case, scroll"],
+        "maxCostGp": 40,
+        "optional": true
+      }
+    ]
+  },
+  {
+    "id": "writing_desk",
+    "titleRu": "Письменный стол",
+    "sceneRu": "Ратуша, монастырь, корабельная каюта.",
+    "hidden": false,
+    "biomes": ["urban", "dungeon", "coastal", "any"],
+    "slots": [
+      {
+        "labelRu": "В ящике или на столешнице",
+        "isMagic": 0,
+        "nameContainsAny": ["ink", "quill", "parchment", "paper", "ink pen", "wax", "seal"],
+        "maxCostGp": 50,
+        "fallbackNameContainsAny": ["folder", "calligrapher"]
+      }
+    ]
+  },
+  {
+    "id": "under_flat_stone",
+    "titleRu": "Под отвалом / плитой",
+    "sceneRu": "Тропа, руины, подвал — кто-то спрятал мелочь.",
+    "hidden": true,
+    "biomes": ["forest", "cave", "dungeon", "mountain", "any"],
+    "slots": [
+      {
+        "labelRu": "Завёрнуто в тряпку",
+        "isMagic": 0,
+        "maxCostGp": 35,
+        "nameContainsAny": ["pouch", "sack", "dart", "flask", "dagger", "knife"],
+        "fallbackCategoryContainsAny": ["adventuring", "weapon", "ammunition"]
+      }
+    ]
+  },
+  {
+    "id": "shallow_burial",
+    "titleRu": "Неглубокая закопка",
+    "sceneRu": "Смятый грунт, крест на палке, сухой куст.",
+    "hidden": true,
+    "biomes": ["forest", "swamp", "arctic", "any"],
+    "slots": [
+      {
+        "labelRu": "В деревянной коробке / кожаном мешке",
+        "isMagic": 0,
+        "maxCostGp": 120,
+        "nameContainsAny": ["rope", "torch", "rations", "waterskin", "blanket", "bedroll"],
+        "fallbackCategoryContainsAny": ["armor", "weapon", "adventuring"]
+      }
+    ]
+  },
+  {
+    "id": "kitchen_larder",
+    "titleRu": "Кладовая / кухонная полка",
+    "sceneRu": "Таверна, ферма, лагерь повара.",
+    "hidden": false,
+    "biomes": ["urban", "forest", "any"],
+    "slots": [
+      {
+        "labelRu": "На полке",
+        "isMagic": 0,
+        "nameContainsAny": ["jug", "pot", "cook", "utensil", "ration", "oil", "vinegar", "flour", "salt", "herb"],
+        "maxCostGp": 40,
+        "fallbackCategoryContainsAny": ["adventuring", "gear"]
+      }
+    ]
+  },
+  {
+    "id": "weapon_rack",
+    "titleRu": "Стойка / стеллаж с оружием",
+    "sceneRu": "Казарма, арсенал, зал тренировок.",
+    "hidden": false,
+    "biomes": ["dungeon", "urban", "mountain", "any"],
+    "slots": [
+      {
+        "labelRu": "На крюках",
+        "isMagic": 0,
+        "maxCostGp": 150,
+        "nameContainsAny": ["spear", "javelin", "quarterstaff", "club", "sling", "mace", "flail", "trident", "pike", "halberd", "glaive"],
+        "fallbackCategoryContainsAny": ["weapon"]
+      },
+      {
+        "labelRu": "Рядом — щиты",
+        "isMagic": 0,
+        "maxCostGp": 80,
+        "nameContainsAny": ["shield"],
+        "optional": true
+      }
+    ]
+  },
+  {
+    "id": "armory_chest",
+    "titleRu": "Сундук в оружейной",
+    "sceneRu": "Замок, стража, наёмники.",
+    "hidden": false,
+    "biomes": ["dungeon", "urban", "any"],
+    "slots": [
+      {
+        "labelRu": "Внутри",
+        "isMagic": 0,
+        "maxCostGp": 200,
+        "nameContainsAny": ["crossbow", "bolt", "arrow", "quiver", "handaxe", "hand crossbow", "light crossbow"],
+        "fallbackCategoryContainsAny": ["ammunition", "weapon"]
+      }
+    ]
+  },
+  {
+    "id": "rope_and_chain_nook",
+    "titleRu": "Ниша с верёвками и цепями",
+    "sceneRu": "Причал, подземный склад, мастерская картографа.",
+    "hidden": false,
+    "biomes": ["dungeon", "coastal", "urban", "cave", "any"],
+    "slots": [
+      {
+        "labelRu": "Смотрится давно не трогали",
+        "isMagic": 0,
+        "maxCostGp": 80,
+        "nameContainsAny": ["rope", "chain", "grappling hook", "block and tackle", "piton", "spikes, iron", "hammer"],
+        "fallbackNameContainsAny": ["crowbar", "ladder"]
+      }
+    ]
+  },
+  {
+    "id": "travel_gear_bench",
+    "titleRu": "Скамья со снаряжением путника",
+    "sceneRu": "Постоялый двор, КПП, лагерь каравана.",
+    "hidden": false,
+    "biomes": ["urban", "forest", "arctic", "mountain", "coastal", "any"],
+    "slots": [
+      {
+        "labelRu": "Сложено аккуратно",
+        "isMagic": 0,
+        "maxCostGp": 100,
+        "nameContainsAny": ["backpack", "bedroll", "blanket", "waterskin", "tinderbox", "torch", "rations"],
+        "fallbackCategoryContainsAny": ["adventuring"]
+      }
+    ]
+  },
+  {
+    "id": "shrine_or_altar_ledge",
+    "titleRu": "Полка у алтаря / святыни",
+    "sceneRu": "Храм, часовня, дорожное капище.",
+    "hidden": false,
+    "biomes": ["dungeon", "urban", "forest", "any"],
+    "slots": [
+      {
+        "labelRu": "Ритуальные мелочи",
+        "isMagic": 0,
+        "maxCostGp": 80,
+        "nameContainsAny": ["holy symbol", "holy water", "censer", "emblem", "reliquary", "incense"],
+        "fallbackNameContainsAny": ["candle", "robe"]
+      }
+    ]
+  },
+  {
+    "id": "priest_vesting_chest",
+    "titleRu": "Сундук со службой / облачениями",
+    "sceneRu": "Сакристия, монастырь.",
+    "hidden": false,
+    "biomes": ["urban", "dungeon", "any"],
+    "slots": [
+      {
+        "labelRu": "Сложенные вещи",
+        "isMagic": 0,
+        "maxCostGp": 60,
+        "nameContainsAny": ["priest", "vestments", "robe", "fine clothes", "costume"],
+        "fallbackCategoryContainsAny": ["adventuring"]
+      }
+    ]
+  },
+  {
+    "id": "rogue_cache_floorboard",
+    "titleRu": "Тайник за плинтусом / под половицей",
+    "sceneRu": "Таверна, воровской притон, чужая спальня.",
+    "hidden": true,
+    "biomes": ["urban", "dungeon", "any"],
+    "slots": [
+      {
+        "labelRu": "Пыль и воск",
+        "isMagic": 0,
+        "maxCostGp": 80,
+        "nameContainsAny": ["thieves", "caltrops", "ball bearings", "chalk", "crowbar", "mirror", "acid", "poison, basic"],
+        "fallbackNameContainsAny": ["lock", "manacles"]
+      }
+    ]
+  },
+  {
+    "id": "alchemist_shelf",
+    "titleRu": "Полка алхимика",
+    "sceneRu": "Лаборатория, лавка зельеваров.",
+    "hidden": false,
+    "biomes": ["urban", "dungeon", "swamp", "any"],
+    "slots": [
+      {
+        "labelRu": "Склянки и этикетки",
+        "isMagic": 0,
+        "maxCostGp": 120,
+        "nameContainsAny": ["acid", "alchemist", "antitoxin", "vial", "oil", "component pouch"],
+        "fallbackCategoryContainsAny": ["adventuring", "gear"]
+      }
+    ]
+  },
+  {
+    "id": "healer_satchel_shelf",
+    "titleRu": "Полка с лекарскими наборами",
+    "sceneRu": "Лазарет, полевой госпиталь.",
+    "hidden": false,
+    "biomes": ["urban", "dungeon", "forest", "any"],
+    "slots": [
+      {
+        "labelRu": "Упаковано для похода",
+        "isMagic": 0,
+        "maxCostGp": 80,
+        "nameContainsAny": ["healer", "herbalism", "antitoxin", "bandage"],
+        "fallbackNameContainsAny": ["kit", "climber"]
+      }
+    ]
+  },
+  {
+    "id": "musicians_corner",
+    "titleRu": "Угол музыканта",
+    "sceneRu": "Таверна, дворец, ярмарка.",
+    "hidden": false,
+    "biomes": ["urban", "forest", "coastal", "any"],
+    "slots": [
+      {
+        "labelRu": "Футляры и стойки",
+        "isMagic": 0,
+        "maxCostGp": 120,
+        "nameContainsAny": ["musical instrument", "horn", "drum", "flute", "lute", "lyre", "harp", "viol", "bagpipe"],
+        "fallbackNameContainsAny": ["gaming set"]
+      }
+    ]
+  },
+  {
+    "id": "gamblers_drawer",
+    "titleRu": "Ящик с игральными принадлежностями",
+    "sceneRu": "Игорный дом, кают-компания.",
+    "hidden": false,
+    "biomes": ["urban", "coastal", "any"],
+    "slots": [
+      {
+        "labelRu": "Фишки и кости",
+        "isMagic": 0,
+        "maxCostGp": 25,
+        "nameContainsAny": ["gaming set", "dice", "deck", "dragonchess"],
+        "fallbackNameContainsAny": ["playing card"]
+      }
+    ]
+  },
+  {
+    "id": "cartographers_table",
+    "titleRu": "Стол картографа",
+    "sceneRu": "Штаб, корабль, разведка.",
+    "hidden": false,
+    "biomes": ["urban", "dungeon", "coastal", "mountain", "any"],
+    "slots": [
+      {
+        "labelRu": "Чертежи и инструменты",
+        "isMagic": 0,
+        "maxCostGp": 60,
+        "nameContainsAny": ["map", "cartographer", "compass", "spyglass", "navigator"],
+        "fallbackNameContainsAny": ["parchment", "ink"]
+      }
+    ]
+  },
+  {
+    "id": "lantern_hook_row",
+    "titleRu": "Крюки для фонарей / ламп",
+    "sceneRu": "Коридор шахты, подземный док.",
+    "hidden": false,
+    "biomes": ["dungeon", "cave", "urban", "any"],
+    "slots": [
+      {
+        "labelRu": "Один фонарь сняли, осталось…",
+        "isMagic": 0,
+        "maxCostGp": 40,
+        "nameContainsAny": ["lantern", "lamp", "torch", "oil", "tinderbox", "candle"],
+        "fallbackCategoryContainsAny": ["adventuring"]
+      }
+    ]
+  },
+  {
+    "id": "wine_cellar_rack",
+    "titleRu": "Винный погреб / стеллаж с бутылями",
+    "sceneRu": "Поместье, таверна, гильдия.",
+    "hidden": false,
+    "biomes": ["urban", "dungeon", "any"],
+    "slots": [
+      {
+        "labelRu": "Пыльные ряды",
+        "isMagic": 0,
+        "maxCostGp": 30,
+        "nameContainsAny": ["bottle", "jug", "barrel", "wine", "perfume"],
+        "fallbackNameContainsAny": ["flask", "goblet"]
+      }
+    ]
+  },
+  {
+    "id": "stable_tack_corner",
+    "titleRu": "Угол конюшни — сбруя и ведра",
+    "sceneRu": "Постой, караван-сарай, конный патруль.",
+    "hidden": false,
+    "biomes": ["urban", "forest", "mountain", "any"],
+    "slots": [
+      {
+        "labelRu": "На крюке или полке",
+        "isMagic": 0,
+        "maxCostGp": 120,
+        "nameContainsAny": ["saddle", "feed", "bucket"],
+        "fallbackCategoryContainsAny": ["vehicle", "adventuring"]
+      }
+    ]
+  },
+  {
+    "id": "forge_sidebench",
+    "titleRu": "Кузница — боковая полка",
+    "sceneRu": "Городская кузня, осадный лагерь.",
+    "hidden": false,
+    "biomes": ["urban", "mountain", "dungeon", "any"],
+    "slots": [
+      {
+        "labelRu": "Инструменты и шлак",
+        "isMagic": 0,
+        "maxCostGp": 80,
+        "nameContainsAny": ["smith", "hammer", "piton", "spikes, iron"],
+        "fallbackNameContainsAny": ["crowbar", "chain"]
+      }
+    ]
+  },
+  {
+    "id": "leatherworker_table",
+    "titleRu": "Стол кожевника",
+    "sceneRu": "Рынок, гарнизон, охотничий лагерь.",
+    "hidden": false,
+    "biomes": ["urban", "forest", "any"],
+    "slots": [
+      {
+        "labelRu": "Инструменты и обрезки",
+        "isMagic": 0,
+        "maxCostGp": 60,
+        "nameContainsAny": ["leatherwork", "hide armor", "studded leather", "pouch", "sack"],
+        "fallbackCategoryContainsAny": ["armor", "adventuring"]
+      }
+    ]
+  },
+  {
+    "id": "jeweler_counter_drawer",
+    "titleRu": "Лоток / ящик ювелира",
+    "sceneRu": "Рынок, дворянский кабинет.",
+    "hidden": true,
+    "biomes": ["urban", "dungeon", "any"],
+    "slots": [
+      {
+        "labelRu": "Под войлоком",
+        "isMagic": 0,
+        "maxCostGp": 100,
+        "nameContainsAny": ["jeweler", "needles", "thieves", "lock"],
+        "fallbackNameContainsAny": ["mirror", "scale"]
+      }
+    ]
+  },
+  {
+    "id": "glassblower_bench",
+    "titleRu": "Верстак стеклодува",
+    "sceneRu": "Ремесленный квартал, алхимическая лаборатория.",
+    "hidden": false,
+    "biomes": ["urban", "dungeon", "any"],
+    "slots": [
+      {
+        "labelRu": "Остывшие заготовки",
+        "isMagic": 0,
+        "maxCostGp": 50,
+        "nameContainsAny": ["glassblower", "bottle, glass", "vial", "lens"],
+        "fallbackNameContainsAny": ["mirror", "oil"]
+      }
+    ]
+  },
+  {
+    "id": "potter_shelf",
+    "titleRu": "Полка гончара",
+    "sceneRu": "Деревня, монастырь, лагерь.",
+    "hidden": false,
+    "biomes": ["urban", "forest", "swamp", "any"],
+    "slots": [
+      {
+        "labelRu": "Черепки и целые изделия",
+        "isMagic": 0,
+        "maxCostGp": 40,
+        "nameContainsAny": ["potter", "jug", "pot, iron"],
+        "fallbackCategoryContainsAny": ["adventuring"]
+      }
+    ]
+  },
+  {
+    "id": "painters_easel_corner",
+    "titleRu": "Угол художника",
+    "sceneRu": "Академия, театр, дворец.",
+    "hidden": false,
+    "biomes": ["urban", "any"],
+    "slots": [
+      {
+        "labelRu": "Краски и холсты",
+        "isMagic": 0,
+        "maxCostGp": 50,
+        "nameContainsAny": ["painter", "canvas"],
+        "fallbackNameContainsAny": ["ink", "chalk"]
+      }
+    ]
+  },
+  {
+    "id": "weaver_loom_side",
+    "titleRu": "Ткацкий станок — боковая полка",
+    "sceneRu": "Мануфактура, монастырь.",
+    "hidden": false,
+    "biomes": ["urban", "dungeon", "any"],
+    "slots": [
+      {
+        "labelRu": "Нитки и инструменты",
+        "isMagic": 0,
+        "maxCostGp": 40,
+        "nameContainsAny": ["weaver", "needle", "cloth", "sack"],
+        "fallbackNameContainsAny": ["sack"]
+      }
+    ]
+  },
+  {
+    "id": "woodcarver_shavings",
+    "titleRu": "Верстак резчика по дереву",
+    "sceneRu": "Мастерская, ферма, лагерь следопытов.",
+    "hidden": false,
+    "biomes": ["forest", "urban", "mountain", "any"],
+    "slots": [
+      {
+        "labelRu": "Старания и стружка",
+        "isMagic": 0,
+        "maxCostGp": 30,
+        "nameContainsAny": ["woodcarver", "club", "torch", "quarterstaff"],
+        "fallbackCategoryContainsAny": ["weapon", "adventuring"]
+      }
+    ]
+  },
+  {
+    "id": "carpenter_rack",
+    "titleRu": "Стеллаж плотника",
+    "sceneRu": "Мастерская, мост, ворота крепости.",
+    "hidden": false,
+    "biomes": ["urban", "forest", "dungeon", "any"],
+    "slots": [
+      {
+        "labelRu": "Инструменты и крепёж",
+        "isMagic": 0,
+        "maxCostGp": 50,
+        "nameContainsAny": ["carpenter", "ladder", "block and tackle", "ram, portable", "hammer"],
+        "fallbackNameContainsAny": ["crowbar", "rope"]
+      }
+    ]
+  },
+  {
+    "id": "mason_tool_cart",
+    "titleRu": "Тележка каменщика",
+    "sceneRu": "Стройка, руины, крепостная стена.",
+    "hidden": false,
+    "biomes": ["dungeon", "urban", "mountain", "any"],
+    "slots": [
+      {
+        "labelRu": "Инструменты и мел",
+        "isMagic": 0,
+        "maxCostGp": 40,
+        "nameContainsAny": ["mason", "chalk", "hammer", "piton", "crowbar"],
+        "fallbackNameContainsAny": ["shovel", "pick"]
+      }
+    ]
+  },
+  {
+    "id": "brewer_cask_corner",
+    "titleRu": "Угол пивовара / бочки",
+    "sceneRu": "Пивоварня, таверный погреб.",
+    "hidden": false,
+    "biomes": ["urban", "dungeon", "any"],
+    "slots": [
+      {
+        "labelRu": "Пробки и мерки",
+        "isMagic": 0,
+        "maxCostGp": 50,
+        "nameContainsAny": ["brewer", "barrel", "jug", "flask"],
+        "fallbackNameContainsAny": ["bucket", "flask"]
+      }
+    ]
+  },
+  {
+    "id": "cobbler_bench",
+    "titleRu": "Сапожная колодка",
+    "sceneRu": "Рынок, казарма.",
+    "hidden": false,
+    "biomes": ["urban", "any"],
+    "slots": [
+      {
+        "labelRu": "Инструменты и подмётки",
+        "isMagic": 0,
+        "maxCostGp": 30,
+        "nameContainsAny": ["cobbler", "leatherwork"],
+        "fallbackNameContainsAny": ["needle", "thread"]
+      }
+    ]
+  },
+  {
+    "id": "tanner_rack",
+    "titleRu": "Сушилка кожевника",
+    "sceneRu": "Окраина города, лагерь орков-ремесленников.",
+    "hidden": false,
+    "biomes": ["urban", "swamp", "forest", "any"],
+    "slots": [
+      {
+        "labelRu": "Шкуры и щётки",
+        "isMagic": 0,
+        "maxCostGp": 45,
+        "nameContainsAny": ["leatherwork", "hide"],
+        "fallbackNameContainsAny": ["rope", "sack"]
+      }
+    ]
+  },
+  {
+    "id": "navigator_chart_table",
+    "titleRu": "Стол штурмана / штурвал",
+    "sceneRu": "Палуба, береговая капитанская.",
+    "hidden": false,
+    "biomes": ["coastal", "urban", "any"],
+    "slots": [
+      {
+        "labelRu": "Парафин и приборы",
+        "isMagic": 0,
+        "maxCostGp": 80,
+        "nameContainsAny": ["navigator", "spyglass", "map", "compass", "rope"],
+        "fallbackNameContainsAny": ["bell", "whistle"]
+      }
+    ]
+  },
+  {
+    "id": "ship_galley_shelf",
+    "titleRu": "Камбуз — полка",
+    "sceneRu": "Корабль, речная баржа.",
+    "hidden": false,
+    "biomes": ["coastal", "urban", "any"],
+    "slots": [
+      {
+        "labelRu": "Котёл и запасы",
+        "isMagic": 0,
+        "maxCostGp": 40,
+        "nameContainsAny": ["cook", "ration", "barrel", "jug", "flask", "salt"],
+        "fallbackNameContainsAny": ["knife", "bucket"]
+      }
+    ]
+  },
+  {
+    "id": "dock_crate_slats",
+    "titleRu": "Щель между досками ящика",
+    "sceneRu": "Причал, таможня.",
+    "hidden": true,
+    "biomes": ["coastal", "urban", "any"],
+    "slots": [
+      {
+        "labelRu": "Кто-то что-то уронил",
+        "isMagic": 0,
+        "maxCostGp": 25,
+        "nameContainsAny": ["rope", "grappling hook", "dart", "flask", "sack"],
+        "fallbackCategoryContainsAny": ["adventuring", "ammunition"]
+      }
+    ]
+  },
+  {
+    "id": "watchtower_signal_box",
+    "titleRu": "Ящик сигнальной башни",
+    "sceneRu": "Крепость, пограничный форпост.",
+    "hidden": false,
+    "biomes": ["urban", "mountain", "dungeon", "any"],
+    "slots": [
+      {
+        "labelRu": "Сухое место",
+        "isMagic": 0,
+        "maxCostGp": 50,
+        "nameContainsAny": ["signal whistle", "spyglass", "horn", "torch", "oil"],
+        "fallbackNameContainsAny": ["mirror", "bell"]
+      }
+    ]
+  },
+  {
+    "id": "hunting_snare_cache",
+    "titleRu": "Тайник охотника / ловчего",
+    "sceneRu": "Лесная тропа, зверинец.",
+    "hidden": true,
+    "biomes": ["forest", "mountain", "arctic", "any"],
+    "slots": [
+      {
+        "labelRu": "Замаскировано хворостом",
+        "isMagic": 0,
+        "maxCostGp": 60,
+        "nameContainsAny": ["hunting trap", "net", "rope", "piton"],
+        "fallbackNameContainsAny": ["knife", "spear"]
+      }
+    ]
+  },
+  {
+    "id": "ranger_quiver_peg",
+    "titleRu": "Колчан на крюке у двери",
+    "sceneRu": "Домик егеря, дозорный домик.",
+    "hidden": false,
+    "biomes": ["forest", "mountain", "urban", "any"],
+    "slots": [
+      {
+        "labelRu": "Стрелы и запасное",
+        "isMagic": 0,
+        "maxCostGp": 50,
+        "nameContainsAny": ["arrow", "bolt", "quiver", "sling", "bullet"],
+        "fallbackCategoryContainsAny": ["ammunition"]
+      }
+    ]
+  },
+  {
+    "id": "druid_branch_bundle",
+    "titleRu": "Связка ветвей и трав",
+    "sceneRu": "Круг друидов, роща.",
+    "hidden": false,
+    "biomes": ["forest", "swamp", "mountain", "any"],
+    "slots": [
+      {
+        "labelRu": "Свежие или сухие",
+        "isMagic": 0,
+        "maxCostGp": 40,
+        "nameContainsAny": ["druidic focus", "mistletoe", "sprig", "herbalism", "torch"],
+        "fallbackNameContainsAny": ["rations", "waterskin"]
+      }
+    ]
+  },
+  {
+    "id": "crypt_niche_sarcophagus",
+    "titleRu": "Ниша у саркофага",
+    "sceneRu": "Склеп, склепение гробниц.",
+    "hidden": false,
+    "biomes": ["dungeon", "urban", "any"],
+    "slots": [
+      {
+        "labelRu": "Прах и пожертвования",
+        "isMagic": 0,
+        "maxCostGp": 80,
+        "nameContainsAny": ["holy symbol", "amulet (worn", "reliquary", "emblem", "censer"],
+        "fallbackNameContainsAny": ["torch", "oil"]
+      }
+    ]
+  },
+  {
+    "id": "torture_chamber_hook",
+    "titleRu": "Крюк в допросной",
+    "sceneRu": "Подземелье тирана, инквизиция.",
+    "hidden": false,
+    "biomes": ["dungeon", "urban", "any"],
+    "slots": [
+      {
+        "labelRu": "Железо и кожа",
+        "isMagic": 0,
+        "maxCostGp": 60,
+        "nameContainsAny": ["manacles", "whip", "chain"],
+        "fallbackNameContainsAny": ["rope", "hooded lantern"]
+      }
+    ]
+  },
+  {
+    "id": "barracks_bedlocker",
+    "titleRu": "Тумбочка у койки",
+    "sceneRu": "Казарма, стража.",
+    "hidden": false,
+    "biomes": ["dungeon", "urban", "any"],
+    "slots": [
+      {
+        "labelRu": "Личные вещи солдата",
+        "isMagic": 0,
+        "maxCostGp": 40,
+        "nameContainsAny": ["dice", "gaming set", "whetstone", "soap", "rations", "dagger"],
+        "fallbackNameContainsAny": ["torch", "waterskin"]
+      }
+    ]
+  },
+  {
+    "id": "mess_hall_trencher_table",
+    "titleRu": "Общий стол столовой",
+    "sceneRu": "Лагерь, монастырь, корабль.",
+    "hidden": false,
+    "biomes": ["urban", "dungeon", "coastal", "forest", "any"],
+    "slots": [
+      {
+        "labelRu": "Крошки и посуда",
+        "isMagic": 0,
+        "maxCostGp": 15,
+        "nameContainsAny": ["ration", "cook", "utensil", "jug", "salt", "oil"],
+        "fallbackCategoryContainsAny": ["adventuring"]
+      }
+    ]
+  },
+  {
+    "id": "fey_mushroom_ring_hollow",
+    "titleRu": "Вмятина внутри грибного кольца",
+    "sceneRu": "Изменённый лес, граница Страны Фей.",
+    "hidden": true,
+    "biomes": ["forest", "swamp", "any"],
+    "slots": [
+      {
+        "labelRu": "Светящаяся пыль",
+        "isMagic": 0,
+        "maxCostGp": 25,
+        "nameContainsAny": ["chalk", "crystal", "sprig", "feather", "rations"],
+        "fallbackNameContainsAny": ["torch", "flask"]
+      }
+    ]
+  },
+  {
+    "id": "swamp_hollow_log",
+    "titleRu": "Полый ствол у трясины",
+    "sceneRu": "Топь, мангры.",
+    "hidden": true,
+    "biomes": ["swamp", "forest", "any"],
+    "slots": [
+      {
+        "labelRu": "Внутри сухо",
+        "isMagic": 0,
+        "maxCostGp": 35,
+        "nameContainsAny": ["rope", "flask", "oil", "torch", "herbalism", "antitoxin"],
+        "fallbackNameContainsAny": ["waterskin", "sack"]
+      }
+    ]
+  },
+  {
+    "id": "arctic_cache_snowdrift",
+    "titleRu": "Укреплённый сугроб",
+    "sceneRu": "Тундра, горный перевал.",
+    "hidden": true,
+    "biomes": ["arctic", "mountain", "any"],
+    "slots": [
+      {
+        "labelRu": "Под настилом",
+        "isMagic": 0,
+        "maxCostGp": 80,
+        "nameContainsAny": ["blanket", "fur", "cloak", "rations", "waterskin", "torch", "oil"],
+        "fallbackCategoryContainsAny": ["adventuring", "armor"]
+      }
+    ]
+  },
+  {
+    "id": "mountain_cairn_hollow",
+    "titleRu": "Каменная куча с полостью",
+    "sceneRu": "Тропа в горах, метка следопыта.",
+    "hidden": true,
+    "biomes": ["mountain", "arctic", "forest", "any"],
+    "slots": [
+      {
+        "labelRu": "Между камнями",
+        "isMagic": 0,
+        "maxCostGp": 50,
+        "nameContainsAny": ["piton", "hammer", "rope", "torch", "rations", "whistle"],
+        "fallbackNameContainsAny": ["knife", "cloak"]
+      }
+    ]
+  },
+  {
+    "id": "cave_bat_guano_corner",
+    "titleRu": "Уступ с кучей гуано",
+    "sceneRu": "Пещера, старая шахта.",
+    "hidden": false,
+    "biomes": ["cave", "dungeon", "mountain", "any"],
+    "slots": [
+      {
+        "labelRu": "Кто-то копал",
+        "isMagic": 0,
+        "maxCostGp": 40,
+        "nameContainsAny": ["torch", "oil", "rope", "piton", "chalk", "hammer", "shovel"],
+        "fallbackNameContainsAny": ["crowbar", "sack"]
+      }
+    ]
+  },
+  {
+    "id": "urban_well_bucket_hook",
+    "titleRu": "Крюк у колодца / лебёдки",
+    "sceneRu": "Двор, площадь, ферма.",
+    "hidden": false,
+    "biomes": ["urban", "forest", "any"],
+    "slots": [
+      {
+        "labelRu": "Забыли снять",
+        "isMagic": 0,
+        "maxCostGp": 25,
+        "nameContainsAny": ["bucket", "rope", "jug", "barrel"],
+        "fallbackNameContainsAny": ["cup", "ladle"]
+      }
+    ]
+  },
+  {
+    "id": "market_stall_drawer",
+    "titleRu": "Ящик лотка торговца",
+    "sceneRu": "Базар, ярмарка.",
+    "hidden": true,
+    "biomes": ["urban", "coastal", "any"],
+    "slots": [
+      {
+        "labelRu": "Мелочь и образцы",
+        "isMagic": 0,
+        "maxCostGp": 35,
+        "nameContainsAny": ["pouch", "sack", "perfume", "soap", "jug", "oil"],
+        "fallbackCategoryContainsAny": ["adventuring", "gear"]
+      }
+    ]
+  },
+  {
+    "id": "stage_prop_trunk",
+    "titleRu": "Реквизитный сундук",
+    "sceneRu": "Театр, балаган.",
+    "hidden": false,
+    "biomes": ["urban", "any"],
+    "slots": [
+      {
+        "labelRu": "Маски и ткани",
+        "isMagic": 0,
+        "maxCostGp": 40,
+        "nameContainsAny": ["costume", "disguise", "cloak", "fine clothes", "mirror"],
+        "fallbackNameContainsAny": ["perfume", "mirror"]
+      }
+    ]
+  },
+  {
+    "id": "noble_perfume_cabinet",
+    "titleRu": "Шкафчик с духами и косметикой",
+    "sceneRu": "Спальня знати, гримёрная.",
+    "hidden": false,
+    "biomes": ["urban", "dungeon", "coastal", "any"],
+    "slots": [
+      {
+        "labelRu": "Флаконы",
+        "isMagic": 0,
+        "maxCostGp": 30,
+        "nameContainsAny": ["perfume", "oil", "soap", "mirror"],
+        "fallbackNameContainsAny": ["fine clothes", "jeweler"]
+      }
+    ]
+  },
+  {
+    "id": "mage_workbench_drawer",
+    "titleRu": "Ящик магической верстака",
+    "sceneRu": "Башня мага, университет.",
+    "hidden": false,
+    "biomes": ["urban", "dungeon", "any"],
+    "slots": [
+      {
+        "labelRu": "Компоненты и фокусы",
+        "isMagic": 0,
+        "maxCostGp": 100,
+        "nameContainsAny": ["arcane focus", "crystal", "orb", "component pouch", "ink", "parchment"],
+        "fallbackNameContainsAny": ["chalk", "candle"]
+      }
+    ]
+  },
+  {
+    "id": "grave_offering_stone",
+    "titleRu": "Камень с подношениями",
+    "sceneRu": "Кладбище, поле боя.",
+    "hidden": false,
+    "biomes": ["forest", "urban", "swamp", "any"],
+    "slots": [
+      {
+        "labelRu": "Свечи и знаки веры",
+        "isMagic": 0,
+        "maxCostGp": 20,
+        "nameContainsAny": ["candle", "holy symbol", "emblem", "torch", "oil"],
+        "fallbackNameContainsAny": ["torch", "oil"]
+      }
+    ]
+  },
+  {
+    "id": "collapsed_wall_gap",
+    "titleRu": "Щель в обвалившейся стене",
+    "sceneRu": "Руины, подземелье.",
+    "hidden": true,
+    "biomes": ["dungeon", "urban", "mountain", "cave", "any"],
+    "slots": [
+      {
+        "labelRu": "Кто-то протиснулся",
+        "isMagic": 0,
+        "maxCostGp": 50,
+        "nameContainsAny": ["torch", "rope", "crowbar", "piton", "hammer", "sack", "pouch"],
+        "fallbackCategoryContainsAny": ["adventuring"]
+      }
+    ]
+  },
+  {
+    "id": "chimney_flue_ledge",
+    "titleRu": "Уступ в дымоходе",
+    "sceneRu": "Очаг, кузница, таверная кухня.",
+    "hidden": true,
+    "biomes": ["urban", "dungeon", "any"],
+    "slots": [
+      {
+        "labelRu": "Сажа и находка",
+        "isMagic": 0,
+        "maxCostGp": 25,
+        "nameContainsAny": ["thieves", "pouch", "dagger", "key", "lock", "mirror"],
+        "fallbackNameContainsAny": ["chalk", "candle"]
+      }
+    ]
+  },
+  {
+    "id": "beehive_apiary_shelf",
+    "titleRu": "Полка пасеки",
+    "sceneRu": "Ферма, монастырь с садами.",
+    "hidden": false,
+    "biomes": ["forest", "urban", "any"],
+    "slots": [
+      {
+        "labelRu": "Смётка и инструменты",
+        "isMagic": 0,
+        "maxCostGp": 30,
+        "nameContainsAny": ["wax", "herbalism", "bucket", "flask", "oil"],
+        "fallbackCategoryContainsAny": ["adventuring", "tool"]
+      }
+    ]
+  }
+]

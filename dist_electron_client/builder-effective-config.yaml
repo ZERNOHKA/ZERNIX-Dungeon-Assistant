@@ -1,0 +1,30 @@
+directories:
+  output: dist_electron_client
+  buildResources: build
+appId: com.zernix.dungeonassistant.client
+productName: ZERNIX Client
+copyright: Copyright © 2026
+files:
+  - filter:
+      - '**/*'
+      - '!**/*.mjs'
+      - '!**/*.db'
+      - '!data/**/*'
+      - '!data'
+      - '!src/**/*'
+      - '!tools/**/*'
+      - '!npc-engine.mjs'
+      - '!npc-data-expansion.mjs'
+      - '!dist_electron/**/*'
+      - '!dist_electron_client/**/*'
+      - '!**/node_modules/better-sqlite3/**'
+      - '!**/node_modules/express/**'
+asarUnpack: []
+extraResources: []
+win:
+  signAndEditExecutable: false
+  target:
+    - target: portable
+      arch:
+        - x64
+electronVersion: 36.9.5

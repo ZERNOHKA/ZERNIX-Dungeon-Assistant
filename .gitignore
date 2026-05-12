@@ -1,0 +1,15 @@
+node_modules
+dist
+dist_electron
+.DS_Store
+*.local
+.env*
+*.tsbuildinfo
+zernix-dnd/
+node_modules/
+dist/
+dist_electron/
+*.exe
+*.dll
+*.pak
+*.bin

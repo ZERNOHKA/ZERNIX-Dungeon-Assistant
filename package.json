@@ -1,0 +1,87 @@
+{
+  "name": "zernix-dungeon-assistant",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "main": "electron/main.cjs",
+  "description": "Pet-проект: помощник мастера D&D (React + Vite, опционально Electron)",
+  "author": "",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "postinstall": "node scripts/install-better-sqlite3-prebuild.cjs",
+    "rebuild:sqlite": "node scripts/install-better-sqlite3-prebuild.cjs",
+    "smoke": "npm run smoke:dnd-loot",
+    "smoke:dnd-loot": "npm run smoke --prefix tools/dnd-loot-sqlite",
+    "npc:test": "node npc-engine.mjs",
+    "electron": "npm run build && electron .",
+    "dist": "npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder",
+    "dist:client": "npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --config electron-builder.client.yml"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.7.0",
+    "express": "^4.22.2",
+    "lucide-react": "^0.468.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-markdown": "^10.1.0",
+    "rehype-raw": "^7.0.0",
+    "remark-breaks": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.3",
+    "autoprefixer": "^10.4.20",
+    "cross-env": "^10.1.0",
+    "electron": "^36.0.0",
+    "electron-builder": "^26.8.1",
+    "postcss": "^8.4.49",
+    "prebuild-install": "^7.1.3",
+    "tailwindcss": "^3.4.15",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11"
+  },
+  "build": {
+    "appId": "com.zernix.dungeonassistant",
+    "productName": "ZERNIX Dungeon Assistant",
+    "directories": {
+      "output": "dist_electron"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "npc-engine.mjs",
+      "npc-data-expansion.mjs",
+      "tools/dnd-loot-sqlite/**/*.mjs",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "**/node_modules/better-sqlite3/**"
+    ],
+    "extraResources": [
+      {
+        "from": "tools/dnd-loot-sqlite/dnd-loot.sqlite",
+        "to": "dnd-loot.sqlite"
+      }
+    ],
+    "win": {
+      "signAndEditExecutable": false,
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "dir",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    }
+  }
+}

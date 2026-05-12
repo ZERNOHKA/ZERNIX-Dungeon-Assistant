@@ -1,0 +1,387 @@
+{
+  "meta": {
+    "title": "ZERNIX Dungeon Assistant",
+    "subtitle": "D&D · свой стол"
+  },
+  "navigation": {
+    "homeCards": [
+      {
+        "id": "loot",
+        "titleRu": "Генератор лута",
+        "subtitleRu": "Случайные предметы для вечерней сессии",
+        "icon": "chest",
+        "route": "loot-picker"
+      },
+      {
+        "id": "npc",
+        "titleRu": "Создать NPC",
+        "subtitleRu": "Портрет, манеры и тайна персонажа",
+        "icon": "hood",
+        "route": "npc-picker"
+      },
+      {
+        "id": "status",
+        "titleRu": "Справочник состояний",
+        "subtitleRu": "Быстрый поиск эффектов и условий",
+        "icon": "tome",
+        "route": "status-list"
+      },
+      {
+        "id": "session",
+        "titleRu": "Подготовка сессии",
+        "subtitleRu": "Оптовый лут и NPC под контекст данжа",
+        "icon": "map",
+        "route": "session-prep"
+      }
+    ],
+    "footerTabs": [
+      {
+        "id": "home",
+        "labelRu": "Главная",
+        "route": "home-main",
+        "icon": "home"
+      },
+      {
+        "id": "history",
+        "labelRu": "История",
+        "route": "placeholder-history",
+        "icon": "history"
+      },
+      {
+        "id": "favorites",
+        "labelRu": "Избранное",
+        "route": "placeholder-favorites",
+        "icon": "star"
+      },
+      {
+        "id": "help",
+        "labelRu": "Помощь",
+        "route": "placeholder-help",
+        "icon": "help"
+      }
+    ]
+  },
+  "loot": {
+    "partyLevels": ["1–4", "5–10", "11–16", "17–20"],
+    "types": [
+      { "id": "weapon", "labelRu": "Оружие", "icon": "sword" },
+      { "id": "armor", "labelRu": "Доспехи", "icon": "shield" },
+      { "id": "potion", "labelRu": "Зелья", "icon": "potion" },
+      { "id": "scroll", "labelRu": "Свитки", "icon": "scroll" },
+      { "id": "misc", "labelRu": "Разное", "icon": "sparkle" },
+      { "id": "trinket", "labelRu": "Безделушки", "icon": "gem" }
+    ],
+    "rarities": {
+      "common": { "labelRu": "Обычный", "colorHex": "#9ca3af" },
+      "uncommon": { "labelRu": "Необычный", "colorHex": "#4ade80" },
+      "rare": { "labelRu": "Редкий", "colorHex": "#a78bfa" },
+      "legendary": { "labelRu": "Легендарный", "colorHex": "#fbbf24" }
+    },
+    "catalog": [
+      {
+        "id": "moonlight-sword",
+        "name": "Меч лунного сияния",
+        "rarityKey": "rare",
+        "flavor": "Клинок пульсирует мягким голубым светом, когда рядом тьма.",
+        "image": "https://images.unsplash.com/photo-1615672911916-7f2e6c4c4b3c?w=400&h=400&fit=crop",
+        "stats": [
+          "+2 к атаке и урону",
+          "Раз в день: луч лунного света 60 фт",
+          "Преимущество против нежити в тусклом свете"
+        ],
+        "typeId": "weapon",
+        "magic": true
+      },
+      {
+        "id": "ember-axe",
+        "name": "Топор угольных искр",
+        "rarityKey": "uncommon",
+        "flavor": "Рукоять тёплая на ощупь, как живая уголь.",
+        "image": "https://images.unsplash.com/photo-1589258532276-7c4c4c4c4c4c?w=400&h=400&fit=crop",
+        "stats": ["+1 к урону огнём", "При критическом попадании: +1d4 огня"],
+        "typeId": "weapon",
+        "magic": true
+      },
+      {
+        "id": "night-veil-mail",
+        "name": "Кольчуга ночной вуали",
+        "rarityKey": "rare",
+        "flavor": "Кольца почти бесшумны и ловят лунный свет.",
+        "image": "https://images.unsplash.com/photo-1610374792793-f016d78d7cd6?w=400&h=400&fit=crop",
+        "stats": [
+          "AC 16 + Ловкость (макс 2)",
+          "Преимущество на Скрытность в темноте"
+        ],
+        "typeId": "armor",
+        "magic": true
+      },
+      {
+        "id": "iron-rations-armor",
+        "name": "Кожаный доспех стража",
+        "rarityKey": "common",
+        "flavor": "Простой, но надёжный — как старые дорожные знаки.",
+        "image": "https://images.unsplash.com/photo-1555993539-1732b0258235?w=400&h=400&fit=crop",
+        "stats": ["AC 12 + Ловкость", "Нет штрафа к Скрытности"],
+        "typeId": "armor",
+        "magic": false
+      },
+      {
+        "id": "crimson-tincture",
+        "name": "Настойка багряного рассвета",
+        "rarityKey": "uncommon",
+        "flavor": "Пахнет медом и железом.",
+        "image": "https://images.unsplash.com/photo-1615485925603-4b4b3b3b3b3b?w=400&h=400&fit=crop",
+        "stats": [
+          "Действие: восстановить 2d4+2 хитов",
+          "Максимум 3 дозы в дорожной сумке"
+        ],
+        "typeId": "potion",
+        "magic": true
+      },
+      {
+        "id": "saltwater-vial",
+        "name": "Флакон солёной воды",
+        "rarityKey": "common",
+        "flavor": "Для ран, ожогов и неожиданных заклинаний.",
+        "image": "https://images.unsplash.com/photo-1514996937319-344454492b37?w=400&h=400&fit=crop",
+        "stats": ["Стабилизирует умирающего существа", "1 использование"],
+        "typeId": "potion",
+        "magic": false
+      },
+      {
+        "id": "scroll-fog",
+        "name": "Свиток туманного шага",
+        "rarityKey": "rare",
+        "flavor": "Буквы расплываются, как дым над болотом.",
+        "image": "https://images.unsplash.com/photo-1455390582262-044cdead277a?w=400&h=400&fit=crop",
+        "stats": [
+          "Заклинание: Туманное облако (3 уровень)",
+          "Исчезает после прочтения"
+        ],
+        "typeId": "scroll",
+        "magic": true
+      },
+      {
+        "id": "wire-and-gear",
+        "name": "Набор тонких отмычек",
+        "rarityKey": "common",
+        "flavor": "Каждая деталь подписана чужеродными рунами.",
+        "image": "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=400&h=400&fit=crop",
+        "stats": ["Преимущество на проверки Взлома", "10 использований"],
+        "typeId": "misc",
+        "magic": false
+      },
+      {
+        "id": "starfall-compass",
+        "name": "Компас звёздного падения",
+        "rarityKey": "legendary",
+        "flavor": "Стрелка всегда указывает на ближайший портал.",
+        "image": "https://images.unsplash.com/photo-1446776653964-20c1d3a81b06?w=400&h=400&fit=crop",
+        "stats": [
+          "Раскрывает скрытые порталы в радиусе 1 мили",
+          "Раз в неделю: предсказать катастрофу"
+        ],
+        "typeId": "trinket",
+        "magic": true
+      }
+    ]
+  },
+  "npc": {
+    "races": [
+      { "value": "human", "labelRu": "Человек" },
+      { "value": "elf", "labelRu": "Эльф" },
+      { "value": "dwarf", "labelRu": "Дварф" },
+      { "value": "halfling", "labelRu": "Полурослик" },
+      { "value": "dragonborn", "labelRu": "Драконорождённый" },
+      { "value": "tiefling", "labelRu": "Тифлинг" },
+      { "value": "gnome", "labelRu": "Гном" },
+      { "value": "orc", "labelRu": "Орк" },
+      { "value": "goliath", "labelRu": "Голиаф" },
+      { "value": "aasimar", "labelRu": "Аасимар" }
+    ],
+    "occupations": [
+      { "value": "merchant", "labelRu": "Торговец" },
+      { "value": "scholar", "labelRu": "Учёный" },
+      { "value": "craftsman", "labelRu": "Ремесленник" },
+      { "value": "guard", "labelRu": "Страж" },
+      { "value": "rogue", "labelRu": "Авантюрист" }
+    ],
+    "roles": [
+      { "value": "ally", "labelRu": "Союзник" },
+      { "value": "rival", "labelRu": "Соперник" },
+      { "value": "mentor", "labelRu": "Наставник" },
+      { "value": "villain", "labelRu": "Злодей" }
+    ],
+    "genderSegment": [
+      { "id": "male", "labelRu": "Муж." },
+      { "id": "female", "labelRu": "Жен." },
+      { "id": "random", "labelRu": "Случайно" }
+    ],
+    "portraits": [],
+    "templates": [
+      {
+        "id": "elf-merchant",
+        "raceKey": "elf",
+        "roleKey": "ally",
+        "name": "Аэлин Сребролист",
+        "genderRu": "Жен.",
+        "occupationRu": "Торговец",
+        "appearance": "Высокая, с прядями серебристых волос, заплетённых листьями. Глаза цвета мха. Говорит тихо, но чётко, постоянно поправляет тканевый шарф.",
+        "motivation": "Найти пропавший караван брата. Тайна: тайно снабжает сопротивление в городе.",
+        "inventory": "Карта тайных троп, баночка с лунной пылью, кольцо с печатью гильдии.",
+        "portraitKey": "f1",
+        "tags": ["merchant", "forest", "guild"]
+      },
+      {
+        "id": "dwarf-guard",
+        "raceKey": "dwarf",
+        "roleKey": "mentor",
+        "name": "Борин Железнобров",
+        "genderRu": "Муж.",
+        "occupationRu": "Страж",
+        "appearance": "Коренастый, с седеющей бородой, перевязанной медной проволокой. Шрам через левую бровь. Пахнет дымом кузни и дёгтем.",
+        "motivation": "Удержать порядок на мосту. Тайна: когда-то бросил отряд ради спасения ребёнка.",
+        "inventory": "Тяжёлый молот, свисток на цепи, потёртая книга устава.",
+        "portraitKey": "m2",
+        "tags": ["guard", "underground", "guild"]
+      },
+      {
+        "id": "human-rogue",
+        "raceKey": "human",
+        "roleKey": "rival",
+        "name": "Кас Вороний Коготь",
+        "genderRu": "Муж.",
+        "occupationRu": "Авантюрист",
+        "appearance": "Худощавый, в потрёпанном плаще с капюшоном. Улыбается чуть раньше, чем говорит. На пальцах кольца с разными гербами.",
+        "motivation": "Забрать артефакт раньше героев. Тайна: работает на двойную оплату.",
+        "inventory": "Отмычки, флакон с дымом, записка с чужим почерком.",
+        "portraitKey": "m1",
+        "tags": ["rogue", "underground", "outlaw", "goblin"]
+      },
+      {
+        "id": "tiefling-scholar",
+        "raceKey": "tiefling",
+        "roleKey": "villain",
+        "name": "Морвен Пепельная Руна",
+        "genderRu": "Жен.",
+        "occupationRu": "Учёный",
+        "appearance": "Рога отполированы до блеска, хвост закутан в ленты. Очки с тонкими золотыми дужками. Голос ровный, почти лекторский.",
+        "motivation": "Открыть разлом между планами. Тайна: считает себя спасителем мира.",
+        "inventory": "Кодекс с диаграммами, ампула с живой тенью, перстень архива.",
+        "portraitKey": "f2",
+        "tags": ["magic", "scholar", "dark"]
+      },
+      {
+        "id": "bone-curator",
+        "raceKey": "human",
+        "roleKey": "villain",
+        "name": "Куратор Костяного зала",
+        "genderRu": "Муж.",
+        "occupationRu": "Хранитель склепа",
+        "appearance": "Сухая кожа натянута на выступающие скулы, в глубоких орбитах тлеет зелёный огонёк. Роба из саванов, на поясе связка ключей от ниш и урн.",
+        "motivation": "Не дать снять печать с главного саркофага. Тайна: когда-то был живым надзирателем и принял проклятие по клятве.",
+        "inventory": "Кольцо с резным черепом, курительница с пеплом усопших, посох-костыль из бедренной кости.",
+        "portraitKey": "m2",
+        "tags": ["undead", "dark", "magic"]
+      },
+      {
+        "id": "goblin-scout",
+        "raceKey": "human",
+        "roleKey": "rival",
+        "name": "Зубцо Острый Ух",
+        "genderRu": "Муж.",
+        "occupationRu": "Разведчик шайки",
+        "appearance": "Низкорослый широкоплечий, с огромными ушами и зеленоватым подтоном кожи. Пахнет сыростью, дымом костра и жиром. На шее висит связка маленьких костей.",
+        "motivation": "Вернуть тотем клана до рассвета. Тайна: шпионит на вождя своей же группы из страха.",
+        "inventory": "Короткий перегнутый лук, мешок с простыми капканами, дудка для подзыва стаи воронов.",
+        "portraitKey": "m1",
+        "tags": ["goblin", "outlaw", "forest", "wild"]
+      },
+      {
+        "id": "archivist-elf",
+        "raceKey": "elf",
+        "roleKey": "mentor",
+        "name": "Сирин Пыльных Полок",
+        "genderRu": "Жен.",
+        "occupationRu": "Архивариус",
+        "appearance": "Бледная, в очках с дымчатыми линзами. Волосы спрятаны под бархатным капюшоном, пальцы в чернильных «татуировках». Говорит шёпотом, будто боится разбудить тома.",
+        "motivation": "Удержать фолиант «Звёздные имена» в стенах архива. Тайна: дневник выдаёт приход посетителей до их стука.",
+        "inventory": "Серебряный стилус, складная лестница с крюком, пробирка с маслом правды.",
+        "portraitKey": "f1",
+        "tags": ["magic", "scholar", "forest"]
+      }
+    ]
+  },
+  "sessionPrep": {
+    "wholesaleLoot": {
+      "chestPrefix": "Сундук",
+      "packPrefix": "Добыча с группы монстров",
+      "packItemCountMin": 2,
+      "packItemCountMax": 4
+    },
+    "environmentHints": [
+      {
+        "fragments": ["библиотек", "архив", "фолиант", "книг", "полк", "читальн"],
+        "tags": ["magic", "scholar"]
+      },
+      {
+        "fragments": ["склеп", "кладбищ", "скелет", "некро", "мертв", "саркофаг", "могил"],
+        "tags": ["undead", "dark"]
+      },
+      {
+        "fragments": ["лес", "роща", "глушь", "друид", "чащ"],
+        "tags": ["forest", "wild"]
+      },
+      {
+        "fragments": ["гильд", "док", "торг", "базар", "таверн", "лоток"],
+        "tags": ["guild", "merchant"]
+      },
+      {
+        "fragments": ["подзем", "данж", "канал", "канализац", "пещер"],
+        "tags": ["underground", "rogue"]
+      },
+      {
+        "fragments": ["гоблин", "орда", "бандит", "разбой", "шайк"],
+        "tags": ["goblin", "outlaw"]
+      }
+    ]
+  },
+  "statuses": [
+    {
+      "id": "blinded",
+      "name": "Ослепление",
+      "summary": "Автоматический провал на любые проверки, требующие зрение.",
+      "iconHint": "eye-off"
+    },
+    {
+      "id": "charmed",
+      "name": "Очарование",
+      "summary": "Не может атаковать очаровавшего; очаровавший имеет преимущество.",
+      "iconHint": "heart"
+    },
+    {
+      "id": "poisoned",
+      "name": "Отравление",
+      "summary": "Недостатки на атаки и проверки характеристик.",
+      "iconHint": "skull"
+    },
+    {
+      "id": "frightened",
+      "name": "Испуг",
+      "summary": "Недостатки, пока виден источник страха; нельзя добровольно приближаться.",
+      "iconHint": "shield-alert"
+    },
+    {
+      "id": "grappled",
+      "name": "Захват",
+      "summary": "Скорость 0; состояние прекращается, если захватчик недееспособен.",
+      "iconHint": "link"
+    },
+    {
+      "id": "incapacitated",
+      "name": "Оцепенение",
+      "summary": "Не может совершать действия и реакций; теряет концентрацию.",
+      "iconHint": "moon"
+    }
+  ]
+}
