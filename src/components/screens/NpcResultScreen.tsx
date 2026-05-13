@@ -13,6 +13,19 @@ interface NpcResultScreenProps {
 }
 
 function shareBody(card: ResolvedNpcCard) {
+  const dq = card.dmQuick;
+  if (dq) {
+    const epit = card.epithet ? ` «${card.epithet}»` : "";
+    return (
+      `${NPC_CARD_LABEL_RU.name}: ${card.name}${epit}\n` +
+      `${card.raceRu} · ${card.roleLabelRu}\n\n` +
+      `Визуально: ${dq.visual}\n` +
+      `Хочет: ${dq.wants}\n` +
+      `Избегает: ${dq.avoids}\n` +
+      `Тайна: ${dq.secret}\n\n` +
+      `${NPC_CARD_LABEL_RU.quote}: ${card.catchphrase}`
+    );
+  }
   const epit = card.epithet ? ` «${card.epithet}»` : "";
   let base =
     `${NPC_CARD_LABEL_RU.name}: ${card.name}${epit}\n` +
@@ -30,6 +43,9 @@ function shareBody(card: ResolvedNpcCard) {
   }
   if (card.socialStakeLine) {
     base += `\n\nСоциальная роль: ${card.socialStakeLine}`;
+  }
+  if (card.encounterMeetingRu) {
+    base += `\n\nВстреча с партией: ${card.encounterMeetingRu}`;
   }
   if (card.pricingRollup) {
     const zm = card.pricingRollup.totalCostZm ?? card.pricingRollup.totalZm;
@@ -143,6 +159,9 @@ export function NpcResultScreen({ npc, onBack, onReroll, variant = "page" }: Npc
       <Section title={NPC_CARD_LABEL_RU.manner}>{npc.manner}</Section>
       {npc.dispositionLabelRu ? <Section title="Отношение к партии">{npc.dispositionLabelRu}</Section> : null}
       {npc.socialStakeLine ? <Section title="Социальная роль к героям">{npc.socialStakeLine}</Section> : null}
+      {npc.encounterMeetingRu ? (
+        <Section title="Встреча с партией">{npc.encounterMeetingRu}</Section>
+      ) : null}
       <Section title={NPC_CARD_LABEL_RU.quote}>{npc.catchphrase}</Section>
       <Section title={NPC_CARD_LABEL_RU.motivation}>{npc.motivation}</Section>
       <Section title={NPC_CARD_LABEL_RU.secret}>{npc.secret}</Section>

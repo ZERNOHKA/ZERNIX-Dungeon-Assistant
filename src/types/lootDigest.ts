@@ -5,6 +5,10 @@ export interface LootItemDigestEntry {
   needsRepair: boolean;
   /** Подпись для карточки состояния */
   statusLine?: string;
+  /** Префикс NEXUS (ржавый / мастерской работы …) */
+  conditionPrefixRu?: string;
+  /** Заметка об ориентире цены после префикса */
+  costAdjustNoteRu?: string;
 }
 
 export interface LootDigestPayload {

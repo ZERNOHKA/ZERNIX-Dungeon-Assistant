@@ -4,6 +4,7 @@ const express = require("express");
 
 /**
  * HTTP API, дублирующее IPC-хендлеры ZERNIX (локальная генерация лута/NPC).
+ * Основные маршруты: `POST /generate-loot`, `POST /generate-npc` (и зеркала `/api/v1/…`).
  *
  * @param {object} opts
  * @param {number} opts.port
@@ -39,45 +40,35 @@ async function startZernixApiServer({ port, apiKey, handlers }) {
     res.json({ ok: true, service: "zernix-dungeon-assistant", api: 1 });
   });
 
-  app.post("/api/v1/generate-loot", auth, async (req, res) => {
-    try {
-      const out = await handlers.generateLoot(req.body ?? {});
-      res.json(out);
-    } catch (e) {
-      res.status(500).json({ ok: false, error: e instanceof Error ? e.message : String(e) });
-    }
-  });
+  /**
+   * @param {string} routePath
+   * @param {(body: object) => Promise<object>} fn
+   */
+  function postJson(routePath, fn) {
+    app.post(routePath, auth, async (req, res) => {
+      try {
+        const out = await fn(req.body ?? {});
+        res.json(out);
+      } catch (e) {
+        res.status(500).json({ ok: false, error: e instanceof Error ? e.message : String(e) });
+      }
+    });
+  }
 
-  app.post("/api/v1/invoke-generate-npc", auth, async (req, res) => {
-    try {
-      const out = await handlers.generateNpc(req.body ?? {});
-      res.json(out);
-    } catch (e) {
-      res.status(500).json({ ok: false, error: e instanceof Error ? e.message : String(e) });
-    }
-  });
+  postJson("/generate-loot", handlers.generateLoot);
+  postJson("/api/v1/generate-loot", handlers.generateLoot);
 
-  app.post("/api/v1/session-prep-generate", auth, async (req, res) => {
-    try {
-      const out = await handlers.sessionPrep(req.body ?? {});
-      res.json(out);
-    } catch (e) {
-      res.status(500).json({ ok: false, error: e instanceof Error ? e.message : String(e) });
-    }
-  });
+  postJson("/generate-npc", handlers.generateNpc);
+  postJson("/api/v1/generate-npc", handlers.generateNpc);
+  postJson("/api/v1/invoke-generate-npc", handlers.generateNpc);
 
-  app.post("/api/v1/scene-loot-generate", auth, async (req, res) => {
-    try {
-      const out = await handlers.sceneLoot(req.body ?? {});
-      res.json(out);
-    } catch (e) {
-      res.status(500).json({ ok: false, error: e instanceof Error ? e.message : String(e) });
-    }
-  });
+  postJson("/api/v1/session-prep-generate", handlers.sessionPrep);
+
+  postJson("/api/v1/scene-loot-generate", handlers.sceneLoot);
 
   return new Promise((resolve, reject) => {
     const server = app.listen(port, "0.0.0.0", () => {
-      console.log(`[ZERNIX] HTTP API на http://0.0.0.0:${port} (POST /api/v1/…)`);
+      console.log(`[ZERNIX] HTTP API на http://0.0.0.0:${port} (POST /generate-loot, /generate-npc, /api/v1/…)`);
       resolve({
         close: () =>
           new Promise((resClose, rejClose) => {

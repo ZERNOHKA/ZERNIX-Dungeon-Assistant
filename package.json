@@ -14,10 +14,16 @@
     "rebuild:sqlite": "node scripts/install-better-sqlite3-prebuild.cjs",
     "smoke": "npm run smoke:dnd-loot",
     "smoke:dnd-loot": "npm run smoke --prefix tools/dnd-loot-sqlite",
+    "seed:monster-tags": "node tools/dnd-loot-sqlite/seed-monster-tags.mjs",
     "npc:test": "node npc-engine.mjs",
     "electron": "npm run build && electron .",
-    "dist": "npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder",
-    "dist:client": "npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --config electron-builder.client.yml"
+    "dist": "npm run build && node scripts/clean-electron-main-out.cjs && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win portable",
+    "dist:protected": "npm run build && node scripts/obfuscate-for-pack.mjs && node scripts/clean-electron-main-out.cjs && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win portable && node scripts/write-dist-integrity.mjs",
+    "dist:win-setup": "npm run build && node scripts/clean-electron-main-out.cjs && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win nsis",
+    "dist:win-unpacked": "npm run build && node scripts/clean-electron-main-out.cjs && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win dir",
+    "prebuild:client": "node scripts/clean-electron-client-out.cjs",
+    "build:client": "electron-builder --config electron-builder.client.yml",
+    "dist:client": "npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false npm run build:client"
   },
   "dependencies": {
     "better-sqlite3": "^11.7.0",
@@ -37,6 +43,7 @@
     "cross-env": "^10.1.0",
     "electron": "^36.0.0",
     "electron-builder": "^26.8.1",
+    "javascript-obfuscator": "^4.2.2",
     "postcss": "^8.4.49",
     "prebuild-install": "^7.1.3",
     "tailwindcss": "^3.4.15",
@@ -66,17 +73,19 @@
         "to": "dnd-loot.sqlite"
       }
     ],
+    "portable": {
+      "artifactName": "ZernixDungeonAssistant-${version}-portable.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "ZernixDungeonAssistant-Setup-${version}.${ext}"
+    },
     "win": {
       "signAndEditExecutable": false,
       "target": [
         {
           "target": "portable",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
-          "target": "dir",
           "arch": [
             "x64"
           ]

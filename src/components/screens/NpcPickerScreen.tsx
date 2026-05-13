@@ -21,14 +21,24 @@ export function NpcPickerScreen({ npc, onBack, onReveal }: NpcPickerScreenProps)
   const [occupation, setOccupation] = useState(npc.occupations[0]?.value ?? "merchant");
   const [role, setRole] = useState(npc.roles[0]?.value ?? "ally");
   const [genderId, setGenderId] = useState(npc.genderSegment[2]?.id ?? "random");
+  const [summonError, setSummonError] = useState<string | null>(null);
 
   const occupationLabel =
     npc.occupations.find((occupationOpt) => occupationOpt.value === occupation)?.labelRu ?? "";
 
   const summon = async () => {
+    setSummonError(null);
     const form: NpcSummonForm = { race, occupationValue: occupation, role, genderId };
     const card = await resolveNpcCard(npc, form);
-    if (!card) return;
+    if (!card) {
+      const hasBridge = typeof window !== "undefined" && Boolean(window.electronAPI?.generateNpc);
+      setSummonError(
+        hasBridge
+          ? "Не удалось сгенерировать NPC. Проверьте подключение к хосту и настройки сети."
+          : "Генерация NPC доступна только в приложении ZERNIX для ПК (Electron).",
+      );
+      return;
+    }
     onReveal(card, form);
   };
 
@@ -93,6 +103,9 @@ export function NpcPickerScreen({ npc, onBack, onReveal }: NpcPickerScreenProps)
           <GoldButton variant="summon" onClick={summon} icon={<UserSquare2 className="size-5 lg:size-6 xl:size-7" />}>
             Призвать персонажа
           </GoldButton>
+          {summonError ? (
+            <p className="mt-3 text-center text-xs leading-snug text-amber-200/90">{summonError}</p>
+          ) : null}
           {occupationLabel ? (
             <p className="mt-4 text-center text-[11px] leading-snug text-zinc-500">
               При наличии в данных шаблона с расой и занятием «{occupationLabel}» берётся он; иначе — шаблон с той же

@@ -13,8 +13,25 @@ const {
 } = require("./network-settings.cjs");
 
 const CLIENT_REMOTE_REQUIRED_MSG = "Подключитесь к серверу хоста";
+const CLIENT_API_KEY_REQUIRED_MSG =
+  "Укажите адрес удалённого хоста и API-ключ в настройках сети — для этой сборки они обязательны.";
+
+/** Маркер из extraMetadata (electron-builder.client.yml) → merged package.json в asar. */
+function isZernixClientOnlyBuild() {
+  try {
+    const pkgPath = path.join(__dirname, "..", "package.json");
+    if (!fs.existsSync(pkgPath)) return false;
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+    return pkg.zernixClientOnly === true;
+  } catch {
+    return false;
+  }
+}
+
+const IS_ZERNIX_CLIENT_ONLY = isZernixClientOnlyBuild();
 
 function localEnginesPresent() {
+  if (IS_ZERNIX_CLIENT_ONLY) return false;
   const lootCorePath = path.join(__dirname, "loot-core.mjs");
   const npcPath = path.join(__dirname, "..", "npc-engine.mjs");
   try {
@@ -30,7 +47,6 @@ function clientRequiresRemoteOnly() {
 
 let mainWindow = null;
 let lootCoreHref = null;
-let npcEngineHref = null;
 let apiServerHandle = null;
 let networkSettings = {
   serveAsHost: false,
@@ -38,6 +54,13 @@ let networkSettings = {
   remoteServerUrl: "",
   apiKey: "",
 };
+
+/** Для клиентской сборки: URL + непустой API-ключ (или env ZERNIX_API_KEY). */
+function remoteCredentialsReady() {
+  if (!getEffectiveRemoteUrl(networkSettings)) return false;
+  const key = getEffectiveApiKey(networkSettings);
+  return String(key ?? "").trim().length > 0;
+}
 
 async function loadLootCore() {
   if (!lootCoreHref) {
@@ -47,19 +70,12 @@ async function loadLootCore() {
   return import(lootCoreHref);
 }
 
-async function loadNpcEngine() {
-  if (!npcEngineHref) {
-    const npcPath = path.join(__dirname, "..", "npc-engine.mjs");
-    npcEngineHref = pathToFileURL(npcPath).href;
-  }
-  return import(npcEngineHref);
-}
+const nexusControllerHref = pathToFileURL(
+  path.join(__dirname, "nexus-generate-controller.mjs"),
+).href;
 
-async function invokeGenerateLoot(payload) {
-  const mod = await loadLootCore();
-  return mod.runGenerateLootMarkdown(
-    typeof payload === "object" && payload !== null ? payload : {},
-  );
+async function loadNexusController() {
+  return import(nexusControllerHref);
 }
 
 async function invokeSessionPrep(payload) {
@@ -76,20 +92,12 @@ async function invokeSceneLoot(payload) {
   );
 }
 
-async function invokeGenerateNpc(payload) {
-  const mod = await loadNpcEngine();
-  const opts = typeof payload === "object" && payload !== null ? payload : {};
-  const result = mod.generateNPC(opts);
-  return {
-    ok: true,
-    data: result.data,
-    markdown: result.markdown,
-  };
-}
-
 async function ipcLootResult(payload) {
   try {
-    const result = await invokeGenerateLoot(payload);
+    const { runGenerateLootServerPipeline } = await loadNexusController();
+    const result = await runGenerateLootServerPipeline(
+      typeof payload === "object" && payload !== null ? payload : {},
+    );
     if (result && typeof result === "object" && "markdown" in result) {
       return {
         ok: true,
@@ -115,6 +123,7 @@ async function ipcSessionPrepResult(payload) {
         ok: true,
         markdown: result.markdown,
         meta: result.meta,
+        sessionBrief: result.sessionBrief,
       };
     }
     return { ok: true, markdown: String(result), meta: undefined };
@@ -136,11 +145,24 @@ async function ipcSceneLootResult(payload) {
 
 async function ipcNpcResult(payload) {
   try {
-    return await invokeGenerateNpc(payload);
+    const { runGenerateNpcServerPipeline } = await loadNexusController();
+    return await runGenerateNpcServerPipeline(
+      typeof payload === "object" && payload !== null ? payload : {},
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return { ok: false, error: message };
   }
+}
+
+async function remoteDispatchClientOrError(pathSuffix, payload) {
+  if (!getEffectiveRemoteUrl(networkSettings)) {
+    return { ok: false, error: CLIENT_REMOTE_REQUIRED_MSG };
+  }
+  if (!String(getEffectiveApiKey(networkSettings) ?? "").trim()) {
+    return { ok: false, error: CLIENT_API_KEY_REQUIRED_MSG };
+  }
+  return remoteFetch(pathSuffix, payload);
 }
 
 async function remoteFetch(pathSuffix, payload) {
@@ -172,8 +194,11 @@ async function remoteFetch(pathSuffix, payload) {
 }
 
 async function dispatchLoot(payload) {
+  if (IS_ZERNIX_CLIENT_ONLY) {
+    return remoteDispatchClientOrError("/generate-loot", payload);
+  }
   if (getEffectiveRemoteUrl(networkSettings)) {
-    return remoteFetch("/api/v1/generate-loot", payload);
+    return remoteFetch("/generate-loot", payload);
   }
   if (clientRequiresRemoteOnly()) {
     return { ok: false, error: CLIENT_REMOTE_REQUIRED_MSG };
@@ -182,6 +207,9 @@ async function dispatchLoot(payload) {
 }
 
 async function dispatchSessionPrep(payload) {
+  if (IS_ZERNIX_CLIENT_ONLY) {
+    return remoteDispatchClientOrError("/api/v1/session-prep-generate", payload);
+  }
   if (getEffectiveRemoteUrl(networkSettings)) {
     return remoteFetch("/api/v1/session-prep-generate", payload);
   }
@@ -192,6 +220,9 @@ async function dispatchSessionPrep(payload) {
 }
 
 async function dispatchSceneLoot(payload) {
+  if (IS_ZERNIX_CLIENT_ONLY) {
+    return remoteDispatchClientOrError("/api/v1/scene-loot-generate", payload);
+  }
   if (getEffectiveRemoteUrl(networkSettings)) {
     return remoteFetch("/api/v1/scene-loot-generate", payload);
   }
@@ -202,8 +233,11 @@ async function dispatchSceneLoot(payload) {
 }
 
 async function dispatchNpc(payload) {
+  if (IS_ZERNIX_CLIENT_ONLY) {
+    return remoteDispatchClientOrError("/generate-npc", payload);
+  }
   if (getEffectiveRemoteUrl(networkSettings)) {
-    return remoteFetch("/api/v1/invoke-generate-npc", payload);
+    return remoteFetch("/generate-npc", payload);
   }
   if (clientRequiresRemoteOnly()) {
     return { ok: false, error: CLIENT_REMOTE_REQUIRED_MSG };
@@ -224,6 +258,9 @@ async function stopApiServer() {
 
 async function maybeStartApiServer() {
   await stopApiServer();
+  if (IS_ZERNIX_CLIENT_ONLY) {
+    return;
+  }
   if (!localEnginesPresent()) {
     console.warn("[ZERNIX] Локальные движки отсутствуют — встроенный HTTP API не запускается.");
     return;
@@ -278,9 +315,12 @@ function createWindow() {
 
   mainWindow.webContents.once("did-finish-load", () => {
     networkSettings = loadNetworkSettings(app);
-    if (clientRequiresRemoteOnly() && !getEffectiveRemoteUrl(networkSettings)) {
+    const needRemoteBanner =
+      (IS_ZERNIX_CLIENT_ONLY && !remoteCredentialsReady()) ||
+      (!IS_ZERNIX_CLIENT_ONLY && clientRequiresRemoteOnly() && !getEffectiveRemoteUrl(networkSettings));
+    if (needRemoteBanner) {
       mainWindow?.webContents.send("zernix-require-remote-config", {
-        message: CLIENT_REMOTE_REQUIRED_MSG,
+        message: IS_ZERNIX_CLIENT_ONLY ? CLIENT_API_KEY_REQUIRED_MSG : CLIENT_REMOTE_REQUIRED_MSG,
       });
     }
   });
@@ -299,23 +339,35 @@ function registerIpcHandlers() {
     networkSettings = loadNetworkSettings(app);
     const engines = localEnginesPresent();
     const remoteOk = Boolean(getEffectiveRemoteUrl(networkSettings));
+    const needsHostConnection = IS_ZERNIX_CLIENT_ONLY
+      ? !remoteCredentialsReady()
+      : !engines && !remoteOk;
     return {
       ...networkSettings,
       effectiveRemoteUrl: getEffectiveRemoteUrl(networkSettings),
       envRemoteOverride: Boolean(process.env.REMOTE_SERVER_URL && String(process.env.REMOTE_SERVER_URL).trim()),
       serving: Boolean(apiServerHandle),
       localEnginesPresent: engines,
-      needsHostConnection: !engines && !remoteOk,
-      clientRemoteRequiredMessage: CLIENT_REMOTE_REQUIRED_MSG,
+      needsHostConnection,
+      isClientOnlyBuild: IS_ZERNIX_CLIENT_ONLY,
+      needsRemoteCredentials: IS_ZERNIX_CLIENT_ONLY && !remoteCredentialsReady(),
+      clientRemoteRequiredMessage: IS_ZERNIX_CLIENT_ONLY ? CLIENT_API_KEY_REQUIRED_MSG : CLIENT_REMOTE_REQUIRED_MSG,
     };
   });
 
   ipcMain.handle("network-settings-set", async (_event, partial) => {
-    networkSettings = { ...loadNetworkSettings(app), ...(typeof partial === "object" && partial ? partial : {}) };
+    const incoming = typeof partial === "object" && partial ? partial : {};
+    networkSettings = { ...loadNetworkSettings(app), ...incoming };
+    if (IS_ZERNIX_CLIENT_ONLY) {
+      networkSettings.serveAsHost = false;
+    }
     saveNetworkSettings(app, networkSettings);
     await maybeStartApiServer();
     const engines = localEnginesPresent();
     const remoteOk = Boolean(getEffectiveRemoteUrl(networkSettings));
+    const needsHostConnection = IS_ZERNIX_CLIENT_ONLY
+      ? !remoteCredentialsReady()
+      : !engines && !remoteOk;
     return {
       ok: true,
       settings: {
@@ -323,8 +375,10 @@ function registerIpcHandlers() {
         effectiveRemoteUrl: getEffectiveRemoteUrl(networkSettings),
         serving: Boolean(apiServerHandle),
         localEnginesPresent: engines,
-        needsHostConnection: !engines && !remoteOk,
-        clientRemoteRequiredMessage: CLIENT_REMOTE_REQUIRED_MSG,
+        needsHostConnection,
+        isClientOnlyBuild: IS_ZERNIX_CLIENT_ONLY,
+        needsRemoteCredentials: IS_ZERNIX_CLIENT_ONLY && !remoteCredentialsReady(),
+        clientRemoteRequiredMessage: IS_ZERNIX_CLIENT_ONLY ? CLIENT_API_KEY_REQUIRED_MSG : CLIENT_REMOTE_REQUIRED_MSG,
       },
     };
   });

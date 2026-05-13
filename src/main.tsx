@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App";
 import { NpcSessionProvider } from "./context/NpcSessionContext";
+import { ZernixGeneratorsProvider } from "./zernix/ZernixGeneratorsContext";
 import { initTelegramWebApp } from "./telegram";
 
 initTelegramWebApp();
@@ -11,7 +12,9 @@ initTelegramWebApp();
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <NpcSessionProvider>
-      <App />
+      <ZernixGeneratorsProvider>
+        <App />
+      </ZernixGeneratorsProvider>
     </NpcSessionProvider>
   </StrictMode>
 );

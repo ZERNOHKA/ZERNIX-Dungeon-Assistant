@@ -20,7 +20,7 @@ export function BottomNav({
 }: BottomNavProps) {
   return (
     <footer
-      className={`fixed bottom-0 left-1/2 z-30 w-full max-w-[430px] -translate-x-1/2 rounded-t-[22px] border border-gold/15 bg-black/92 px-6 pb-[calc(14px+env(safe-area-inset-bottom))] pt-4 shadow-[0_-22px_40px_rgba(0,0,0,.55)] backdrop-blur-xl supports-[backdrop-filter]:bg-black/82 lg:hidden ${className}`.trim()}
+      className={`fixed bottom-0 left-1/2 z-30 w-full max-w-[430px] -translate-x-1/2 rounded-t-[20px] border border-gold/22 border-b-0 bg-[#050505]/94 px-6 pb-[calc(14px+env(safe-area-inset-bottom))] pt-4 shadow-[0_-24px_48px_rgba(0,0,0,.6)] backdrop-blur-xl supports-[backdrop-filter]:bg-[#050505]/88 lg:hidden ${className}`.trim()}
     >
       <div className="flex items-center justify-between gap-4">
         {tabs.map((tab) => {
@@ -31,8 +31,8 @@ export function BottomNav({
               key={tab.id}
               type="button"
               onClick={() => onSelect(tab.id, tab.route)}
-              className={`flex flex-1 flex-col items-center gap-1 rounded-xl px-1 py-1 text-[11px] font-medium transition ${
-                active ? "text-gold shadow-goldGlow bg-gold/10" : "text-zinc-500 hover:text-gold/80"
+              className={`flex flex-1 flex-col items-center gap-1 rounded-zernix px-1 py-1 text-[11px] font-semibold transition ${
+                active ? "bg-gold/[0.1] text-gold shadow-innerGold" : "text-zinc-500 hover:text-gold/85"
               }`}
               aria-current={active}
             >

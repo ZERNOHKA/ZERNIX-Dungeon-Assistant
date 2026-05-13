@@ -156,29 +156,34 @@ export function LootPickerScreen({
       return;
     }
     const gold = Number(String(goldLimit).replace(",", "."));
+    const categories = dbCategoriesForLootTypes(selectedTypeIds, typeIdsAll);
+    const chestParsed =
+      chestInput.trim() === ""
+        ? 0
+        : Math.max(0, Math.min(24, Math.floor(Number(chestInput.replace(",", ".")) || 0)));
+    const sqliteCtxBase = {
+      level: String(partyLevel),
+      typeIds: [...selectedTypeIds],
+      magicOnly,
+      source: "sqlite" as const,
+      partyLevel,
+      playerCount,
+      difficulty,
+      environment,
+      goldGp: Number.isFinite(gold) && gold > 0 ? gold : 0,
+      dbCategories: categories,
+      chestCount: chestParsed,
+    };
     if (!Number.isFinite(gold) || gold <= 0) {
+      onGenerateMarkdown(
+        `_Ошибка:_ Укажите **положительный** лимит золота (gp) в поле «Лимит золота». Сейчас значение не распознано как число больше нуля.`,
+        sqliteCtxBase,
+        null,
+      );
       return;
     }
     setIpcBusy(true);
     try {
-      const categories = dbCategoriesForLootTypes(selectedTypeIds, typeIdsAll);
-      const chestParsed =
-        chestInput.trim() === ""
-          ? 0
-          : Math.max(0, Math.min(24, Math.floor(Number(chestInput.replace(",", ".")) || 0)));
-      const sqliteCtxBase = {
-        level: String(partyLevel),
-        typeIds: [...selectedTypeIds],
-        magicOnly,
-        source: "sqlite" as const,
-        partyLevel,
-        playerCount,
-        difficulty,
-        environment,
-        goldGp: gold,
-        dbCategories: categories,
-        chestCount: chestParsed,
-      };
       const result = await window.electronAPI.generateLoot({
         gold,
         categories,
@@ -279,7 +284,7 @@ export function LootPickerScreen({
         trailing={
           <button
             type="button"
-            className="flex size-11 items-center justify-center rounded-xl border border-gold/35 text-gold transition hover:bg-gold/5 lg:size-12"
+            className="flex size-11 shrink-0 items-center justify-center rounded-zernix border border-gold/35 text-gold shadow-innerGold transition hover:bg-gold/[0.06] lg:size-12"
             aria-label="Подсказка"
           >
             <Info className="size-5 lg:size-6" strokeWidth={1.45} aria-hidden />
@@ -301,7 +306,7 @@ export function LootPickerScreen({
         </SelectField>
 
         {hasElectron ? (
-          <div className="space-y-3 rounded-xl border border-gold/15 bg-black/30 px-4 py-3">
+          <div className="zernix-panel space-y-3 px-4 py-4">
             <p className="text-xs uppercase tracking-[0.22em] text-zinc-500">SRD SQLite · D&D 5.5 · только результат обыска</p>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block space-y-1">
@@ -367,7 +372,7 @@ export function LootPickerScreen({
             </p>
           </div>
         ) : (
-          <p className="rounded-xl border border-gold/15 bg-black/25 px-4 py-3 text-sm text-zinc-500">
+          <p className="rounded-zernix border border-gold/18 bg-black/40 px-4 py-3 text-sm text-zinc-500 shadow-innerGold">
             Откройте приложение через <strong className="text-zinc-400">Electron</strong> (<code className="text-gold/90">npm run electron</code>
             ), чтобы бросать лут из локальной базы SRD. В браузере доступен только демо-каталог JSON.
           </p>
@@ -413,10 +418,10 @@ export function LootPickerScreen({
           ) : null}
         </div>
 
-        <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-gold/20 bg-black/35 px-4 py-3 text-sm">
+        <label className="flex cursor-pointer items-center gap-3 rounded-zernix border border-gold/22 bg-black/40 px-4 py-3 text-sm shadow-innerGold">
           <input
             type="checkbox"
-            className="size-5 accent-gold"
+            className="zernix-checkbox size-5"
             checked={magicOnly}
             onChange={(event) => setMagicOnly(event.target.checked)}
           />

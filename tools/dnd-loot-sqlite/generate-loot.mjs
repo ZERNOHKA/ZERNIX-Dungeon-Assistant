@@ -47,6 +47,7 @@ import {
   generateLootHybrid,
   generateIndividualTreasureLoot,
   generateLootHybridDiceOnly,
+  buildHybridDiceLootWeightTags,
   applyNatureContextToHybridPicks,
   partyTreasureSoftCapGp,
   clipLootTotalsToWealthCap,
@@ -62,6 +63,7 @@ import {
   rollWorldState,
   normalizeWorldState,
   formatWorldStateLabelRuEn,
+  WORLD_STATES,
   generateDeathRattle,
   extractTagsFromTrace,
 } from './lib/loot-generator-55.mjs';
@@ -73,6 +75,21 @@ import {
 } from './lib/encounter-build.mjs';
 import { difficultyLabelRu } from './lib/encounterXpBudget.mjs';
 import { analyzeSessionPrepDescription } from './lib/session-prep-keywords.mjs';
+import {
+  pickSceneTheme,
+  mergeThemeKeywordFragments,
+  resolveThematicWorldState,
+  pickFrom,
+  pickDeterministicFrom,
+  pickThematicAtmosphereDeterministic,
+  buildThematicEncounterExtraText,
+} from './lib/session-scene-themes.mjs';
+import { pickSceneTypeDeterministic, sceneTypeLabelRu } from './lib/session-scene-types.mjs';
+import { inferNarrativeBiome, narrativeBiomeHardMismatch } from './lib/location-context.mjs';
+import { buildDmSessionBundle } from './lib/dm-session-pipeline.mjs';
+import { normalizeName } from './lib/fantasy-name-normalize.mjs';
+import { buildMinimalEncounterContract } from './lib/dm-scoring-contract.mjs';
+import { mergeDedupedNarrativeLines } from './lib/dm-loot-narrative-dedupe.mjs';
 import {
   generatePersonalLoot,
   generateEnvironmentLoot,
@@ -93,9 +110,11 @@ import {
   formatLocalizedWithOriginalSuffix,
   formatMonsterDisplayNameRuEn,
   formatMonsterHeadingRuEnCr,
+  translateMonsterNameForReport,
 } from './lib/db-localization.mjs';
 import { SQL_ITEMS_LOCALIZED_FROM, SQL_ITEMS_LOCALIZED_SELECT } from './lib/sql-items-localized.mjs';
 import { generateSceneStashes } from './lib/scene-loot.mjs';
+import { applyZernixNexusMigrations } from './lib/zernix-nexus-schema.mjs';
 
 const LOOT_DEBUG = process.env.ZERNIX_LOOT_DEBUG === '1';
 
@@ -190,6 +209,7 @@ export function openLootDatabase(filePath) {
   lootDebug('DEBUG: Открываю базу по пути:', abs);
   const database = new Database(abs);
   database.pragma('foreign_keys = ON');
+  applyZernixNexusMigrations(database);
   validateLootDatabaseOrThrow(database, abs);
   return database;
 }
@@ -1111,11 +1131,33 @@ export function buildLootOnlyDataset(database, opts) {
   const playerCount = Math.min(12, Math.max(1, Math.floor(Number(opts.playerCount) || 4)));
   const difficultyRaw = String(opts.difficulty ?? 'moderate');
   const environment = String(opts.environment || 'any').toLowerCase();
+  const contextTag =
+    opts.contextTag != null && String(opts.contextTag).trim()
+      ? String(opts.contextTag).trim().toLowerCase()
+      : environment !== 'any' && environment.length > 0
+        ? environment
+        : undefined;
   const categories = Array.isArray(opts.categories)
     ? opts.categories.map((x) => String(x)).filter((s) => s.length > 0)
     : [];
   const onlyMagic = Boolean(opts.onlyMagic);
   const chestCount = parseLootChestCount(opts.chestCount);
+
+  const envText = String(opts.environmentText ?? '');
+  const contract = buildMinimalEncounterContract({
+    environment,
+    themeId: String(opts.themeId ?? ''),
+    thematicTags: [],
+    keywordFragments: [],
+    nextEncounterHint: String(opts.nextEncounterHint ?? ''),
+    environmentExtraText: envText,
+    factionTags: Array.isArray(opts.factionTags) ? opts.factionTags : undefined,
+    continuityText: typeof opts.continuityText === 'string' ? opts.continuityText : undefined,
+  });
+  const lootOnlySceneType = pickSceneTypeDeterministic(
+    contract.themeId || 'generic',
+    `${environment}|${envText.slice(0, 120)}`,
+  );
 
   const enc = buildEncounterFromDatabase(database, {
     partyLevel,
@@ -1125,6 +1167,13 @@ export function buildLootOnlyDataset(database, opts) {
     rng,
     worldState: normalizeWorldState(opts.worldState) ?? undefined,
     nextEncounterHint: String(opts.nextEncounterHint ?? ''),
+    environmentExtraText: envText,
+    themeId: contract.themeId,
+    factionTags: contract.factionTags,
+    continuityText: contract.continuityText,
+    thematicTags: contract.thematicTags,
+    sceneType: lootOnlySceneType,
+    keywordFragments: contract.keywordFragments,
   });
 
   const tags = dominantCreatureTagsFromRoster(enc.roster);
@@ -1173,6 +1222,11 @@ export function buildLootOnlyDataset(database, opts) {
       onlyMagic,
       caveBias,
       skipMundaneHybrid,
+      contextTag,
+      contract.scoreCtx.themeTags,
+      contract.scoreCtx.factionTags,
+      contract.scoreCtx.continuityText,
+      contract.narrativeBiome,
     );
     const hybridMundane = applyNatureContextToHybridPicks(
       database,
@@ -1196,6 +1250,8 @@ export function buildLootOnlyDataset(database, opts) {
       includeCoins: true,
       partyLevel,
       playerCount,
+      contextTag,
+      themeTags: contract.scoreCtx.themeTags,
     });
     if (ind.coinsApproxGp != null) {
       totalGoldGp += applyGoldJitter(ind.coinsApproxGp);
@@ -1220,6 +1276,8 @@ export function buildLootOnlyDataset(database, opts) {
         rng,
         partyLevel,
         playerCount,
+        contextTag,
+        themeTags: contract.scoreCtx.themeTags,
       });
       if (h.coinsApproxGp != null) {
         totalGoldGp += applyGoldJitter(h.coinsApproxGp);
@@ -1254,6 +1312,7 @@ export function buildLootOnlyDataset(database, opts) {
     const rescue = pickMundaneHoardItems(database, 2, categories, rng, {
       caveGemBias: caveBias,
       qualityTargetCr: crLoot,
+      contextTag,
     });
     for (const r of rescue) {
       if (!isAdventuringPackExcluded(r)) {
@@ -1417,6 +1476,22 @@ export function formatEncounterAndLootMarkdownReport(database, opts) {
     : [];
   const onlyMagic = Boolean(opts.onlyMagic);
 
+  const envText = String(opts.environmentText ?? opts.environmentExtraText ?? '');
+  const contract = buildMinimalEncounterContract({
+    environment,
+    themeId: String(opts.themeId ?? ''),
+    thematicTags: [],
+    keywordFragments: [],
+    nextEncounterHint: String(opts.nextEncounterHint ?? ''),
+    environmentExtraText: String(opts.environmentExtraText ?? opts.environmentText ?? ''),
+    factionTags: Array.isArray(opts.factionTags) ? opts.factionTags : undefined,
+    continuityText: typeof opts.continuityText === 'string' ? opts.continuityText : undefined,
+  });
+  const encLootSceneType = pickSceneTypeDeterministic(
+    contract.themeId || 'generic',
+    `${environment}|${envText.slice(0, 160)}`,
+  );
+
   const enc = buildEncounterFromDatabase(database, {
     partyLevel,
     playerCount,
@@ -1426,6 +1501,12 @@ export function formatEncounterAndLootMarkdownReport(database, opts) {
     environmentExtraText: String(opts.environmentExtraText ?? opts.environmentText ?? ''),
     worldState: normalizeWorldState(opts.worldState) ?? undefined,
     nextEncounterHint: String(opts.nextEncounterHint ?? ''),
+    themeId: contract.themeId,
+    factionTags: contract.factionTags,
+    continuityText: contract.continuityText,
+    thematicTags: contract.thematicTags,
+    sceneType: encLootSceneType,
+    keywordFragments: contract.keywordFragments,
   });
 
   const tags = dominantCreatureTagsFromRoster(enc.roster);
@@ -1451,6 +1532,8 @@ export function formatEncounterAndLootMarkdownReport(database, opts) {
     rng,
     partyLevel,
     playerCount,
+    contextTag: lootContextTagFromEnv(environment),
+    themeTags: contract.scoreCtx.themeTags,
   });
 
   const gpCap = Number.isFinite(goldLimitGp) && goldLimitGp > 0 ? goldLimitGp : 200;
@@ -1739,14 +1822,243 @@ function formatSquadMeetLineRu(database, roster) {
  * }} [opts.dungeonSession] память подземелья (ZERNIX NEXUS)
  * @param {string} [opts.hoardOrigin] `desecrated` | `normal` — для ZERNIX Legacy Loot Ultra (иначе ~6% случайного осквернения)
  */
+/** Есть ли хотя бы одна «сюжетная» строка награды (улика / фракция / находка…). */
+function rewardLinesHavePipelineNarrative(lines) {
+  return (Array.isArray(lines) ? lines : []).some((ln) =>
+    /^(улика|сюжет|фракция|событие|накал|находка|зачепка):/i.test(String(ln).trim()),
+  );
+}
+
+/** Пост-нормализация строк брифа — только на границе вывода (не в скоринге). */
+function finalizeSessionBriefOutput(brief) {
+  const b = brief && typeof brief === 'object' ? brief : {};
+  const norm = (s) => {
+    const t = normalizeName(String(s ?? '')).trim();
+    return t.length ? t : '—';
+  };
+  const arr = (xs) => (Array.isArray(xs) ? xs.map((x) => norm(x)) : []);
+  return {
+    title: norm(b.title),
+    themeLabel: norm(b.themeLabel),
+    sceneTypeId: String(b.sceneTypeId ?? '')
+      .trim()
+      .toLowerCase(),
+    sceneTypeLabel: norm(b.sceneTypeLabel),
+    biomeLabel: norm(b.biomeLabel),
+    encounterPitch: norm(b.encounterPitch),
+    worldSummary: norm(b.worldSummary),
+    factionHintsLine: norm(b.factionHintsLine),
+    locationStructuredName: norm(b.locationStructuredName),
+    locationZonesLine: norm(b.locationZonesLine),
+    location: norm(b.location),
+    atmosphere: norm(b.atmosphere),
+    danger: norm(b.danger),
+    enemies: arr(b.enemies),
+    rewardLines: arr(b.rewardLines),
+    hook: norm(b.hook),
+  };
+}
+
+/** Одна строка для DM-брифа — без простыней. */
+function clampSessionBriefLine(str, max = 140) {
+  const s = String(str ?? '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!s) return '—';
+  if (s.length <= max) return s;
+  return `${s.slice(0, max - 1)}…`;
+}
+
+function firstSentenceBrief(str, max = 100) {
+  const t = stripDmNoise(String(str ?? ''))
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!t) return '—';
+  const dot = t.search(/[.!?]\s/);
+  const one = dot >= 0 ? t.slice(0, dot + 1).trim() : t;
+  return clampSessionBriefLine(one, max);
+}
+
+/** Убрать англ. подписи в скобках и техно-мусор для стол-брифа */
+function stripDmNoise(str) {
+  let s = String(str ?? '')
+    .replace(/\*\*/g, '')
+    .replace(/_/g, '');
+  let prev;
+  do {
+    prev = s;
+    s = s
+      .replace(/\([^)]*[A-Za-z][^)]*\)/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  } while (s !== prev);
+  s = s
+    .replace(/\bDC\s*\d+/gi, '')
+    .replace(/\bd20\b[^.!?]*[.!?]?/gi, '')
+    .replace(/(\b[\wА-Яа-яЁё'-]+\b)(\s+\1\b)+/gi, '$1')
+    .replace(/\s+\.\s+\.\s+/g, ' ')
+    .replace(/\s*\)\s*$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return s;
+}
+
+/** Чистое имя предмета для брифа: без дублей «кольцо кольцо», без хвоста на латинице. */
+function cleanLootDisplayName(rawTranslated) {
+  let s = stripDmNoise(String(rawTranslated));
+  s = s
+    .replace(/\s+[A-Za-z][^\sА-Яа-яЁё0-9,:]*(?:\s+[A-Za-z][^\sА-Яа-яЁё0-9,:]*)*$/u, '')
+    .trim();
+  const half = Math.floor(s.length / 2);
+  if (half > 12) {
+    const a = s.slice(0, half).trim();
+    const b = s.slice(half).trim();
+    if (a.toLowerCase() === b.toLowerCase()) return stripDmNoise(a);
+  }
+  const words = s.split(/\s+/).filter(Boolean);
+  if (words.length >= 6) {
+    const mid = Math.floor(words.length / 2);
+    const left = words.slice(0, mid).join(' ');
+    const right = words.slice(mid).join(' ');
+    if (left.toLowerCase() === right.toLowerCase()) return stripDmNoise(left);
+  }
+  const ci = s.indexOf(':');
+  if (ci > 0) {
+    const left = s.slice(0, ci).trim();
+    const right = s.slice(ci + 1).trim();
+    if (right.toLowerCase().startsWith(left.toLowerCase())) s = right.trim();
+    else if (left.toLowerCase() === right.toLowerCase()) s = left;
+  }
+  return stripDmNoise(s);
+}
+
+/** Крючок: без хвостов на английском и без скобок. */
+function sceneHookLine(primaryTrace, fallbackHint, max = 100) {
+  const raw = primaryTrace?.trim()
+    ? String(primaryTrace)
+    : String(fallbackHint ?? '');
+  const noParenTail = stripDmNoise(raw.split('(')[0] ?? raw).trim();
+  return firstSentenceBrief(noParenTail || raw, max);
+}
+
+const NARRATIVE_BIOME_LABEL_RU = Object.freeze({
+  laboratory: 'Лаборатория / мастерская',
+  cave: 'Пещера',
+  forest: 'Лес',
+  city: 'Город',
+  dungeon: 'Подземелье',
+  swamp: 'Болото',
+  coastal: 'Побережье',
+  mountain: 'Горы',
+  arctic: 'Стужа',
+  crypt: 'Склеп',
+  generic: 'Место',
+});
+
+/**
+ * @param {string} biomeId
+ * @param {string} themeLabel
+ * @param {Array<{ row: Record<string, unknown>, count: number }>|undefined} roster
+ * @param {import('better-sqlite3').Database} database
+ */
+function buildEncounterPitchRu(biomeId, themeLabel, roster, database) {
+  const biome =
+    NARRATIVE_BIOME_LABEL_RU[/** @type {keyof typeof NARRATIVE_BIOME_LABEL_RU} */ (biomeId)] ||
+    NARRATIVE_BIOME_LABEL_RU.generic;
+  if (!roster?.length) return `${biome} — ${themeLabel}.`;
+  const names = [];
+  for (const e of roster) {
+    const raw = translateMonsterNameForReport(database, String(e.row?.name ?? ''));
+    const nm = stripDmNoise(String(raw).split('(')[0] ?? raw).trim();
+    if (nm) names.push(nm);
+    if (names.length >= 4) break;
+  }
+  return `${biome} — ${themeLabel}: ${names.join(', ')}.`;
+}
+
+function dmMonsterLine(database, englishName, count, enemyRole) {
+  const ru = translateMonsterNameForReport(database, String(englishName ?? ''));
+  const label = stripDmNoise(ru || String(englishName ?? 'Существо'));
+  const ROLE_PREFIX_RU = {
+    MAIN_THREAT: 'Главная угроза',
+    ENVIRONMENTAL_THREAT: 'Среда',
+    TWIST_ENTITY: 'Поворот',
+    SUPPORT_ENTITY: 'Поддержка',
+  };
+  const role =
+    enemyRole && typeof enemyRole === 'string' && ROLE_PREFIX_RU[/** @type {keyof typeof ROLE_PREFIX_RU} */ (enemyRole)]
+      ? `${ROLE_PREFIX_RU[/** @type {keyof typeof ROLE_PREFIX_RU} */ (enemyRole)]}: `
+      : '';
+  return `${role}${count} ${label}`;
+}
+
+/** Контекст для `items.tags` (urban | dungeon | wilderness) из биома сессии. */
+function lootContextTagFromEnv(env) {
+  const k = String(env ?? 'any').toLowerCase();
+  if (k === 'urban') return 'urban';
+  if (k === 'forest' || k === 'swamp' || k === 'coastal' || k === 'mountain' || k === 'arctic') {
+    return 'wilderness';
+  }
+  return 'dungeon';
+}
+
+function sessionBriefToPlainText(b) {
+  const lines = [
+    b.title.toUpperCase(),
+    '',
+    'ТЕМА',
+    b.themeLabel,
+    '',
+  ];
+  if (b.sceneTypeLabel?.trim()) {
+    lines.push('ТИП СЦЕНЫ', b.sceneTypeLabel.trim(), '');
+  }
+  if (b.biomeLabel?.trim()) {
+    lines.push('БИОМ', b.biomeLabel.trim(), '');
+  }
+  if (b.encounterPitch?.trim()) {
+    lines.push('СЦЕНА', b.encounterPitch.trim(), '');
+  }
+  if (b.worldSummary?.trim()) {
+    lines.push('МИР', b.worldSummary.trim(), '');
+  }
+  if (b.locationStructuredName?.trim()) {
+    lines.push('ОБЪЕКТ', b.locationStructuredName.trim(), '');
+  }
+  if (b.locationZonesLine?.trim()) {
+    lines.push('ЗОНЫ', b.locationZonesLine.trim(), '');
+  }
+  if (b.factionHintsLine?.trim()) {
+    lines.push('ФРАКЦИИ', b.factionHintsLine.trim(), '');
+  }
+  lines.push(
+    'ЛОКАЦИЯ',
+    b.location,
+    '',
+    'АТМОСФЕРА',
+    b.atmosphere,
+    '',
+    'УГРОЗА',
+    b.danger,
+    '',
+    'ВРАГИ',
+    ...b.enemies,
+    '',
+    'НАГРАДА',
+    ...b.rewardLines,
+    '',
+    'КРЮЧОК',
+    b.hook,
+  );
+  return lines.join('\n');
+}
+
 export function formatSessionPrepMarkdownReport(database, opts) {
   const rng = typeof opts.rng === 'function' ? opts.rng : Math.random;
   const hoardOriginOpt =
     typeof /** @type {*} */ (opts).hoardOrigin === 'string'
       ? String(/** @type {*} */ (opts).hoardOrigin).trim()
       : '';
-  const sessionWorldState = normalizeWorldState(opts.worldState) ?? rollWorldState(rng);
-  const sessionWorldLabel = formatWorldStateLabelRuEn(sessionWorldState);
   const nextTraceHint = String(opts.nextEncounterHint ?? '');
   const dsRaw = opts.dungeonSession;
   const dungeonSession =
@@ -1779,7 +2091,7 @@ export function formatSessionPrepMarkdownReport(database, opts) {
   const environmentText = String(opts.environmentText ?? '');
   const onlyMagic = Boolean(opts.onlyMagic);
 
-  const { fragments, tribal } = analyzeSessionPrepDescription(environmentText);
+  const { fragments } = analyzeSessionPrepDescription(environmentText);
   const explicitEnv = String(opts.environmentKey ?? '')
     .trim()
     .toLowerCase();
@@ -1800,67 +2112,93 @@ export function formatSessionPrepMarkdownReport(database, opts) {
     envKey = /** @type {import('./lib/encounter-build.mjs').EncounterEnvironmentKey} */ (explicitEnv);
   }
 
+  const theme = pickSceneTheme(rng, environmentText);
+  const narrativeBiome = inferNarrativeBiome(envKey, theme.id);
+  const sceneTypeId = pickSceneTypeDeterministic(theme.id, environmentText);
+  const sceneTypeLabel = sceneTypeLabelRu(sceneTypeId);
+  const sessionWorldState = resolveThematicWorldState(theme, opts.worldState, rng);
+  const mergedKeywordFragments = mergeThemeKeywordFragments(theme, fragments, 8);
+  const encounterExtraText = [buildThematicEncounterExtraText(theme, environmentText), `ритм: ${sceneTypeLabel}`]
+    .filter(Boolean)
+    .join(' · ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
   const diffRu = difficultyLabelRu(difficultyRaw);
-  const envRu = environmentLabelRu(envKey);
 
-  /** @type {string[]} */
-  const lines = [];
+  const seedCore = `${theme.id}|${sceneTypeId}|${narrativeBiome}|${environmentText.slice(0, 120)}`;
 
-  lines.push(`# ${MD_BRAND} — Подготовка сессии (SRD SQLite · D&D 5.5)`, '');
-  lines.push(
-    `**Группа:** ${partyLevel} уровень, **игроков:** ${playerCount}, **сложность встреч:** ${diffRu}. **Локация (выпадающий список → SQLite):** ${envRu}. **Состояние мира:** ${sessionWorldLabel}. **Доп. текст окружения (фильтр по подстрокам, опционально):** ${environmentText.trim() || '—'}`,
-    '',
+  const dmBundle = buildDmSessionBundle({
+    theme,
+    narrativeBiome,
+    sceneTypeId,
+    partyLevel,
+    environmentText,
+    nextTraceHint,
+    dungeonSession,
+    seedCore,
+  });
+  const lootWeightTags = buildHybridDiceLootWeightTags(
+    theme.contentTags,
+    dmBundle.factionTags,
+    dmBundle.continuityText,
+    narrativeBiome,
   );
-  if (dungeonSession) {
-    const skulls = renderThreatSkulls(dungeonSession.floorDepth);
-    lines.push(
-      `> **[ ПОДЗЕМЕЛЬЕ: УРОВЕНЬ ${dungeonSession.floorDepth} ]**`,
-      `> **Угроза:** ${skulls} _(чем глубже, тем плотнее зло)_`,
-      dungeonSession.previousTraceForHeader
-        ? `> **Контекст:** Предыдущий след — *"${dungeonSession.previousTraceForHeader}"*`
-        : '> **Контекст:** _первая комната — следа ещё нет_',
-      dungeonSession.difficultyBias > 0
-        ? `> **Напряжение:** Сложность повышена! (бюджет XP +${Math.round(dungeonSession.difficultyBias * 100)}%)`
-        : '> **Напряжение:** Стандартно',
-      '',
-    );
-    if (dungeonSession.transitionMarkdown) {
-      lines.push(`_${dungeonSession.transitionMarkdown}_`, '');
-    }
-    lines.push('---', '');
-  }
-  /** @type {string[]} */
-  const filterLines = [
-    `- **Ключевые фильтры монстров (по тексту):** ${fragments.length ? fragments.join(', ') : '_(нет)_'}`,
-    `- **Биом для запросов к SQLite:** ${envRu} (\`${envKey}\`)`,
-  ];
-  if (dungeonSession?.persistentTags?.length) {
-    filterLines.push(`- **Память подземелья (теги отряда):** ${dungeonSession.persistentTags.join(', ')}`);
-  }
-  lines.push(...filterLines, '', '---', '');
+  const locZonesShort = dmBundle.location.sublocations.slice(0, 3).join(' → ');
+  const encounterExtraMerged = [encounterExtraText, `${dmBundle.location.name}. ${locZonesShort}`]
+    .filter(Boolean)
+    .join(' · ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 340);
 
-  const envUltra = generateEnvironmentLoot(environmentText, dungeonSession?.floorDepth ?? 0, rng);
-  lines.push(...envUltra.markdownLines, '---', '');
+  /** @type {string[]} */
+  let rewardLines = ['—'];
+  if (chestCount === 0) {
+    const hints = Array.isArray(theme.narrativeLootHints) ? theme.narrativeLootHints.filter(Boolean) : [];
+    rewardLines = hints.length
+      ? [pickDeterministicFrom(hints, `${seedCore}|loot`)]
+      : ['Зацепка: чужой след — свежий, но обрывается у пустой ниши'];
+  }
 
   /** @type {number} */
   let maxSquadCr = 0;
   const squads = [];
 
   for (let p = 1; p <= packCount; p += 1) {
-    const enc = buildEncounterFromDatabase(database, {
+    const encOpts = {
       partyLevel,
       playerCount,
       difficulty: difficultyRaw,
       environment: envKey,
-      keywordFragments: fragments,
+      keywordFragments: mergedKeywordFragments,
       rng,
-      environmentExtraText: environmentText,
+      environmentExtraText: encounterExtraMerged,
       worldState: sessionWorldState,
       nextEncounterHint: nextTraceHint,
       persistentMonsterTags: dungeonSession?.persistentTags ?? [],
       dungeonXpBudgetMultiplier: dungeonSession?.difficultyBias ?? 0,
       floorDepth: dungeonSession?.floorDepth ?? 0,
-    });
+      thematicTags: theme.contentTags,
+      thematicExcludedTags: Array.isArray(theme.excludedTags) ? theme.excludedTags : [],
+      sceneType: sceneTypeId,
+      themeId: theme.id,
+      factionTags: dmBundle.factionTags,
+      continuityText: dmBundle.continuityText,
+    };
+    let enc = buildEncounterFromDatabase(database, encOpts);
+    if (
+      enc.roster?.length &&
+      enc.roster.some(({ row }) => narrativeBiomeHardMismatch(narrativeBiome, row))
+    ) {
+      enc = buildEncounterFromDatabase(database, {
+        ...encOpts,
+        persistentMonsterTags: [
+          ...(dungeonSession?.persistentTags ?? []),
+          ...theme.contentTags.map((x) => String(x).trim().toLowerCase()).filter(Boolean).slice(0, 5),
+        ],
+      });
+    }
     maxSquadCr = Math.max(maxSquadCr, enc.totalCr);
     squads.push(enc);
   }
@@ -1880,143 +2218,7 @@ export function formatSessionPrepMarkdownReport(database, opts) {
     }
   }
 
-  lines.push('## Отряды монстров', '');
-  if (packCount === 0) {
-    lines.push('_Группы монстров не запрошены (число = 0)._', '', '---', '');
-  } else {
-    for (let i = 0; i < squads.length; i += 1) {
-      const enc = squads[i];
-      const meetLine = formatSquadMeetLineRu(database, enc.roster);
-      const enemySummary = enc.roster.length
-        ? enc.roster
-            .map((e) => `${formatMonsterDisplayNameRuEn(database, String(e.row.name ?? ''))} ×${e.count}`)
-            .join(', ')
-        : '—';
-      lines.push(
-        `### Отряд ${i + 1}`,
-        '',
-        '---',
-        '',
-        `**Тип встречи:** ${enc.archetypeLabel ?? '—'}`,
-        '',
-        `**Тактика (манёвры):** ${enc.flavourText ?? '—'}`,
-        '',
-      );
-      if (enc.narrative && typeof enc.narrative === 'object') {
-        const n = /** @type {Record<string, unknown>} */ (enc.narrative);
-        if (n.encounterEcologyTactics) {
-          lines.push(
-            `**Экология отряда (${String(n.encounterRoleLabelRu ?? enc.encounterRoleLabelRu ?? '—')}):** ${n.encounterEcologyTactics}`,
-            '',
-          );
-        }
-        if (n.battlefieldHeightSummary) {
-          lines.push(`**Полигон (3D):** ${n.battlefieldHeightSummary}`, '');
-        }
-        if (n.environmentalHazardLine) {
-          lines.push(`**Архитектурная опасность:** ${n.environmentalHazardLine}`, '');
-        }
-        if (n.darknessCombatNote) {
-          lines.push(`**Тьма / слух:** ${n.darknessCombatNote}`, '');
-        }
-        if (n.battleCry) lines.push(`**Боевой клич:** ${n.battleCry}`, '');
-        if (n.morale) lines.push(`**Мораль:** ${n.morale}`, '');
-        if (n.interactable) lines.push(`**Окружение (интерактив):** ${n.interactable}`, '');
-        if (n.stormEnvironmentNote) lines.push(`**Буря (эффект):** ${n.stormEnvironmentNote}`, '');
-        if (n.npcInventoryNote) lines.push(`**Деталь NPC (руки / мелочь):** ${n.npcInventoryNote}`, '');
-        if (n.encounterTrace) {
-          lines.push(`> **След (после боя):** ${n.encounterTrace}`, '');
-        }
-        if (n.legendarySolo) {
-          lines.push(
-            '_**Legendary:** один враг против группы — CR подобран жёстче под экономику действий._',
-            '',
-          );
-        }
-        const fm = n.firstMoves;
-        if (Array.isArray(fm) && fm.length) {
-          lines.push('**Первый ход (мастеру):**', ...fm.map((t) => `- ${t}`), '');
-        }
-      }
-      lines.push('---', '');
-      lines.push(
-        meetLine || `**Состав:** ${enemySummary}`,
-        '',
-        `- **Бюджет XP (таблица DMG 2024 × игроков, из SQLite):** ${enc.budgetXp}`,
-        `- **Набрано XP (сумма xp монстров из таблицы monsters):** ~${enc.actualXp}`,
-        `- **Суммарный CR отряда:** ${enc.totalCr.toFixed(2)}`,
-        '',
-      );
-      if (enc.roster.length === 0) {
-        lines.push('_Пусто — проверьте фильтры или базу._', '', '---', '');
-        continue;
-      }
-      for (const { row, count, injured, isLegendarySolo, leaderVisualTrait } of enc.roster) {
-        const piece = /** @type {Record<string, unknown>} */ (formatMonsterLoot(row));
-        const heading = formatMonsterHeadingRuEnCr(
-          database,
-          String(piece.name ?? ''),
-          formatMonsterCrDisplay(row),
-        );
-        lines.push(
-          `#### ${heading} ×${count}`,
-          '',
-          formatMonsterSection(piece, database, row, rng, enc.encounterRole),
-          '',
-        );
-        if (injured) {
-          lines.push(
-            '_**Ранение:** ~70% HP в начале боя; агрессивнее._',
-            '',
-          );
-        }
-        if (isLegendarySolo) {
-          lines.push('_**Legendary:** усилен под «один против группы»._', '');
-        }
-        if (leaderVisualTrait) {
-          lines.push(`**Черта лидера:** _${leaderVisualTrait}_`, '');
-        }
-      }
-      lines.push('---', '');
-    }
-  }
-
-  let tribalKind = tribal;
-  if (!tribalKind && squads.length) {
-    for (const enc of squads) {
-      const t = detectTribalFromRoster(enc.roster);
-      if (t) {
-        tribalKind = t;
-        break;
-      }
-    }
-  }
-  if (tribalKind) {
-    const gearRows = pickTribalRusticGear(database, tribalKind, 4, rng);
-    lines.push(`## Грубое / самодельное снаряжение (${tribalKind === 'orc' ? 'орки' : 'гоблины'} — выборка из items в SQLite)`, '');
-    if (!gearRows.length) {
-      lines.push('_В БД не найдено подходящих немагических предметов._', '');
-    } else {
-      for (const row of gearRows) {
-        const piece = formatItemLoot(/** @type {Record<string, unknown>} */ (row), database);
-        lines.push(`### ${piece.name}`, '', formatItemSection(piece, database), '', '---', '');
-      }
-    }
-    lines.push('');
-  }
-
-  lines.push('## 💎 **Сокровищница** (The Hoard) — сундуки по CR', '');
-  lines.push(
-    `_Каждый сундук — отдельный набор по правилам hoard: эффективный CR **${effectiveHoardCr.toFixed(2)}** (макс. CR среди отрядов или уровень/4)._`,
-    '',
-    '_Здесь **не** действуют фильтры типов предметов с экрана «Генератор лута» — в сундук попадают все немагические категории из таблиц (включая ремесло: свитки писца, материалы и т.п.) и магия по CR._',
-    '',
-    '_**ZERNIX Legacy Loot Ultra:** валюта описана разнообразно; редкая куча может быть **осквернена** (проклятие жадности)._',
-    '',
-  );
-  if (chestCount === 0) {
-    lines.push('_Сундуки не запрошены._', '');
-  }
+  if (chestCount > 0) {
   for (let c = 1; c <= chestCount; c += 1) {
     const hoard = generateTreasureHoardLoot(database, {
       totalCr: effectiveHoardCr,
@@ -2030,6 +2232,8 @@ export function formatSessionPrepMarkdownReport(database, opts) {
       rng,
       partyLevel,
       playerCount,
+      contextTag: lootContextTagFromEnv(envKey),
+      themeTags: lootWeightTags,
     });
     const mundaneForChest = applyNatureContextToHybridPicks(
       database,
@@ -2042,43 +2246,48 @@ export function formatSessionPrepMarkdownReport(database, opts) {
       hoardOriginOpt ||
       (rng() < 0.06 ? 'desecrated' : 'normal');
     const hoardUltra = generateHoard(hoardOrigin, effectiveHoardCr, hoardCoins.gp, rng);
-    lines.push(`### Сундук ${c}`, '');
-    lines.push(`- **Монеты (оценка, ZERNIX Ultra):** ${hoardUltra.currencyFlavorLine}`, '');
-    if (hoardUltra.greedCurseLine) {
-      lines.push(`- ${hoardUltra.greedCurseLine}`, '');
-    }
-    let mi = 1;
-    for (const row of hoard.magicItems) {
-      const piece = formatItemLoot(/** @type {Record<string, unknown>} */ (row), database);
-      lines.push(`#### Магия ${mi}`, '', formatItemSection(piece, database), '');
-      const quirks = magicItemQuirk(piece, rng);
-      if (quirks.markdownBlock) {
-        lines.push(quirks.markdownBlock, '');
-      }
-      mi += 1;
-    }
-    // Гарантия: если CR 5+ и магические предметы не выпали
-    if (hoard.magicItems.length === 0 && effectiveHoardCr >= 5) {
-      const fallback = guaranteeHoardFallbackItems(effectiveHoardCr, rng);
-      if (fallback.length) {
-        lines.push('**⚠ Гарантированный лут (магия не выпала):**', '');
-        for (const fl of fallback) lines.push(`- ${fl}`);
-        lines.push('');
+    if (c === 1) {
+      const gp = Math.max(0, Math.floor(Number(hoardCoins.gp) || 0));
+      rewardLines = [`${gp} зм`];
+      if (hoard.magicItems.length > 0) {
+        const piece = formatItemLoot(/** @type {Record<string, unknown>} */ (hoard.magicItems[0]), database);
+        const rawName = typeof piece.name === 'string' ? piece.name : '';
+        const nm = translateItemNameForReport(database, rawName) || rawName;
+        rewardLines.push(cleanLootDisplayName(nm));
+      } else if (mundaneForChest.length > 0) {
+        const piece = formatItemLoot(/** @type {Record<string, unknown>} */ (mundaneForChest[0]), database);
+        const rawName = typeof piece.name === 'string' ? piece.name : '';
+        const nm = translateItemNameForReport(database, rawName) || rawName;
+        rewardLines.push(`ещё: ${cleanLootDisplayName(nm)}`);
+      } else {
+        const hints = Array.isArray(theme.narrativeLootHints) ? theme.narrativeLootHints.filter(Boolean) : [];
+        rewardLines.push(hints.length ? pickDeterministicFrom(hints, `${seedCore}|chest${c}`) : 'монеты и мелочь');
       }
     }
-    let ni = 1;
-    for (const row of mundaneForChest) {
-      const piece = formatItemLoot(/** @type {Record<string, unknown>} */ (row), database);
-      lines.push(`#### Прочее ${ni}`, '', formatItemSection(piece, database), '');
-      ni += 1;
-    }
-    lines.push('---', '');
+    void hoardUltra;
+  }
   }
 
-  lines.push(
-    '_Лут NPC из JSON и заклинания атмосферы можно добавить отдельно в интерфейсе приложения._',
-    '',
-  );
+  if (chestCount >= 1) {
+    const hints = Array.isArray(theme.narrativeLootHints) ? theme.narrativeLootHints.filter(Boolean) : [];
+    /** @type {string[]} */
+    const extras = [];
+    for (let tries = 0; tries < 3 && hints.length; tries += 1) {
+      const prop = pickDeterministicFrom(hints, `${seedCore}|extra${tries}`);
+      if (prop) extras.push(prop);
+    }
+    rewardLines = mergeDedupedNarrativeLines(rewardLines, extras, 14);
+  }
+
+  rewardLines = mergeDedupedNarrativeLines(rewardLines, dmBundle.lootNarrativeLines, 14);
+
+  if (!rewardLinesHavePipelineNarrative(rewardLines) && dmBundle.lootNarrativeLines.length) {
+    rewardLines = mergeDedupedNarrativeLines(
+      [pickDeterministicFrom(dmBundle.lootNarrativeLines, `${seedCore}|narFloor`)],
+      rewardLines,
+      14,
+    );
+  }
 
   let primaryEncounterTrace = '';
   if (squads.length > 0 && squads[0].narrative && typeof squads[0].narrative === 'object') {
@@ -2091,13 +2300,128 @@ export function formatSessionPrepMarkdownReport(database, opts) {
   const scoutAlarmNextRoomXpBonus =
     squads.length > 0 ? Number(/** @type {*} */ (squads[0]).scoutAlarmXpBonusNextRoom) || 0 : 0;
 
+  const firstEnc = squads[0];
+  const roleOrder = { MAIN_THREAT: 0, TWIST_ENTITY: 1, ENVIRONMENTAL_THREAT: 2, SUPPORT_ENTITY: 3 };
+  const sortedRoster =
+    packCount > 0 && firstEnc?.roster?.length
+      ? [...firstEnc.roster].sort((a, b) => {
+          const ra = roleOrder[/** @type {keyof typeof roleOrder} */ (/** @type {*} */ (a).enemyRole)] ?? 9;
+          const rb = roleOrder[/** @type {keyof typeof roleOrder} */ (/** @type {*} */ (b).enemyRole)] ?? 9;
+          return ra - rb;
+        })
+      : [];
+  /** @type {string[]} */
+  const enemiesLines =
+    sortedRoster.length > 0
+      ? sortedRoster.map((e) =>
+          dmMonsterLine(
+            database,
+            String(e.row.name ?? ''),
+            Math.max(1, Math.floor(Number(e.count) || 1)),
+            /** @type {*} */ (e).enemyRole,
+          ),
+        )
+      : packCount === 0
+        ? ['Отряды не запрошены']
+        : ['—'];
+  const n0 =
+    firstEnc?.narrative && typeof firstEnc.narrative === 'object'
+      ? /** @type {Record<string, unknown>} */ (firstEnc.narrative)
+      : {};
+  const dangerSource = n0.environmentalHazardLine
+    ? String(n0.environmentalHazardLine)
+    : firstEnc?.flavourText
+      ? String(firstEnc.flavourText)
+      : '';
+  const dangerFromEncounter = stripDmNoise(
+    (dangerSource.split('(')[0] ?? dangerSource).trim() || dangerSource,
+  );
+  const dangerFromTheme = pickDeterministicFrom(theme.dangers, `${seedCore}|danger`);
+  /** @type {string[]} */
+  const dangerCandidates = [];
+  if (dangerFromEncounter.trim()) dangerCandidates.push(dangerFromEncounter.trim());
+  if (dangerFromTheme) dangerCandidates.push(dangerFromTheme);
+  const dangerLine = stripDmNoise(
+    clampSessionBriefLine(
+      pickDeterministicFrom(
+        dangerCandidates.length ? dangerCandidates : ['—'],
+        `${seedCore}|dangerPick`,
+      ),
+      120,
+    ),
+  );
+  const hookFromTheme = pickDeterministicFrom(theme.hooks, `${seedCore}|hook`);
+  const hookOut = stripDmNoise(
+    hookFromTheme
+      ? clampSessionBriefLine(hookFromTheme, 110)
+      : sceneHookLine(primaryEncounterTrace, nextTraceHint, 100),
+  );
+  const atmosphereOut = stripDmNoise(
+    clampSessionBriefLine(pickThematicAtmosphereDeterministic(theme, sessionWorldState, seedCore), 140),
+  );
+  const locationOut = stripDmNoise(
+    environmentText.trim()
+      ? clampSessionBriefLine((environmentText.split(/[.\n]/)[0] ?? environmentText).trim(), 160)
+      : clampSessionBriefLine(
+          `${dmBundle.location.name} · ${dmBundle.location.type} · ${dmBundle.location.sublocations[0] ?? ''}`.trim(),
+          160,
+        ),
+  );
+  const title =
+    environmentText.trim().length > 2
+      ? (() => {
+          const line = (environmentText.split(/[.\n]/)[0] ?? environmentText).trim();
+          const cleaned = stripDmNoise(line);
+          if (cleaned.length > 2) {
+            return cleaned.length > 44 ? `${cleaned.slice(0, 41)}…` : cleaned;
+          }
+          return pickDeterministicFrom(theme.titleSeeds, `${seedCore}|title`);
+        })()
+      : pickDeterministicFrom(theme.titleSeeds, `${seedCore}|title`);
+
+  const encounterPitch = buildEncounterPitchRu(narrativeBiome, theme.labelRu, firstEnc?.roster, database);
+  const biomeLabel =
+    NARRATIVE_BIOME_LABEL_RU[/** @type {keyof typeof NARRATIVE_BIOME_LABEL_RU} */ (narrativeBiome)] ||
+    NARRATIVE_BIOME_LABEL_RU.generic;
+  const worldSummary = dmBundle.worldState.regions.join(' — ').slice(0, 220);
+  const factionHintsLine = dmBundle.worldState.factions.join(' · ').slice(0, 200);
+  const locationStructuredName = dmBundle.location.name;
+  const locationZonesLine = dmBundle.location.sublocations.join(' → ');
+
+  const sessionBrief = finalizeSessionBriefOutput({
+    title,
+    themeLabel: theme.labelRu,
+    sceneTypeId,
+    sceneTypeLabel,
+    biomeLabel,
+    encounterPitch,
+    worldSummary,
+    factionHintsLine,
+    locationStructuredName,
+    locationZonesLine,
+    location: locationOut,
+    atmosphere: atmosphereOut,
+    danger: dangerLine,
+    enemies: enemiesLines,
+    rewardLines,
+    hook: hookOut,
+  });
+
   return {
-    markdown: lines.join('\n'),
+    markdown: sessionBriefToPlainText(sessionBrief),
+    sessionBrief,
     meta: {
       primaryEncounterTrace,
       chainTagsFromPrimaryTrace,
       floorDepthEcho: dungeonSession?.floorDepth ?? 0,
       scoutAlarmNextRoomXpBonus,
+      partyLevel,
+      playerCount,
+      difficulty: diffRu,
+      sessionThemeId: theme.id,
+      sessionSceneTypeId: sceneTypeId,
+      narrativeBiomeId: narrativeBiome,
+      dmLocationId: dmBundle.location.id,
     },
   };
 }
@@ -2549,6 +2873,13 @@ export {
   formatMonsterHeadingRuEnCr,
 } from './lib/db-localization.mjs';
 export { generateNpcProfile } from './lib/npc-appearance.mjs';
+export { applyZernixNexusMigrations, applyZernixNexusMigrationsAsync } from './lib/zernix-nexus-schema.mjs';
+export { loadGeneratorRuleRegistry, getGeneratorRule } from './lib/generator-registry.mjs';
+export {
+  mergeNpcWithNexusDb,
+  inferSecondaryTagsFromSecret,
+  enrichNpcPayloadFromDatabase,
+} from './lib/npc-nexus-enrich.mjs';
 export {
   generatePersonalLoot,
   generateEnvironmentLoot,

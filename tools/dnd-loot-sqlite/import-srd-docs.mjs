@@ -99,12 +99,14 @@ function bulkItems(db, rows) {
       slug, name, category, subcategory, source_section,
       cost_raw, cost_gp, cost_cp, weight_raw, weight_lb,
       rarity, is_magic, attunement, mastery_property, type_line,
-      consumable_use_action, description_md, extra_json
+      consumable_use_action, description_md, extra_json,
+      loot_weight, tags
     ) VALUES (
       @slug, @name, @category, @subcategory, @source_section,
       @cost_raw, @cost_gp, @cost_cp, @weight_raw, @weight_lb,
       @rarity, @is_magic, @attunement, @mastery_property, @type_line,
-      @consumable_use_action, @description_md, @extra_json
+      @consumable_use_action, @description_md, @extra_json,
+      COALESCE(@loot_weight, 100), COALESCE(@tags, '')
     )
   `);
   const tx = db.transaction((list) => {

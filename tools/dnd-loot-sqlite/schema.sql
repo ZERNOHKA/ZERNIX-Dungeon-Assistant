@@ -31,7 +31,9 @@ CREATE TABLE IF NOT EXISTS items (
     type_line             TEXT,
     consumable_use_action TEXT,
     description_md        TEXT,
-    extra_json            TEXT NOT NULL DEFAULT '{}'
+    extra_json            TEXT NOT NULL DEFAULT '{}',
+    loot_weight           INTEGER NOT NULL DEFAULT 100,
+    tags                  TEXT NOT NULL DEFAULT ''
 );
 
 CREATE INDEX IF NOT EXISTS idx_items_category ON items (category);
@@ -70,7 +72,8 @@ CREATE TABLE IF NOT EXISTS monsters (
     challenge_rating  TEXT,
     cr_numeric        REAL,
     xp                INTEGER,
-    raw_statblock_md  TEXT NOT NULL
+    raw_statblock_md  TEXT NOT NULL,
+    tags              TEXT NOT NULL DEFAULT ''
 );
 
 CREATE INDEX IF NOT EXISTS idx_monsters_cr ON monsters (cr_numeric);
@@ -123,3 +126,33 @@ CREATE TABLE IF NOT EXISTS localization (
 );
 
 CREATE INDEX IF NOT EXISTS idx_localization_category ON localization (category);
+
+-- NEXUS: фрагменты для мгновенной мотивации / биографии NPC (trait | secret | goal).
+CREATE TABLE IF NOT EXISTS lore_fragments (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    type        TEXT NOT NULL CHECK (type IN ('trait', 'secret', 'goal')),
+    text        TEXT NOT NULL,
+    weight      INTEGER NOT NULL DEFAULT 100,
+    tags        TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_lore_fragments_type ON lore_fragments (type);
+
+-- NEXUS: веса выпадения профессий (синхрон с npc-engine; можно расширять без пересборки кода).
+CREATE TABLE IF NOT EXISTS npc_professions (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    profession_id  TEXT NOT NULL UNIQUE,
+    name_ru        TEXT NOT NULL,
+    category       TEXT,
+    weight         INTEGER NOT NULL DEFAULT 100,
+    tags           TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_npc_professions_weight ON npc_professions (weight);
+
+-- NEXUS: декларативный реестр правил (расширение без правок ядра).
+CREATE TABLE IF NOT EXISTS generator_rules (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    rule_key         TEXT NOT NULL UNIQUE,
+    definition_json  TEXT NOT NULL,
+    version          INTEGER NOT NULL DEFAULT 1
+);
+CREATE INDEX IF NOT EXISTS idx_generator_rules_key ON generator_rules (rule_key);

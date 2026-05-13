@@ -49,7 +49,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
    */
   generateSceneLoot: (payload) => ipcRenderer.invoke("scene-loot-generate", payload),
   /**
-   * Генерация NPC через npc-engine.mjs (raceId, genderId, greetingMood, professionId).
+   * Генерация NPC через npc-engine.mjs — можно передать partyRoleLabelRu с формы.
    * @param {Record<string, unknown>} payload
    */
   generateNpc: (payload) => ipcRenderer.invoke("invoke-generate-npc", payload),

@@ -2,26 +2,313 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+  Графика (положите файлы в public/ и раскомментируйте в :root ниже в @layer base или здесь):
+    --zernix-logo-dragon: url("/logo_dragon.png");       — слот в сайдбаре (.zernix-logo-slot)
+    --zernix-d20-art: url("/d20_dice.png");             — кубик внизу слева (.zernix-d20 слой в компоненте)
+    --zernix-home-hero: url("/bg_dragon_castle.png");   — атмосферный фон под UI (слой .zernix-app-bg::after)
+*/
+
 @layer base {
   :root {
     --gold: #d4af37;
-    --gold-glow: rgba(212, 175, 55, 0.3);
-    --tg-bg: #0c0d10;
-    --tg-secondary-bg: #14161c;
+    --gold-line: #d4af37;
+    --gold-bronze: #8a6d3b;
+    --gold-glow: rgba(212, 175, 55, 0.32);
+    --zernix-text-primary: #e2e2e2;
+    /* Фон приложения — эталон референса */
+    --tg-bg: #050505;
+    --tg-secondary-bg: #121212;
+    --zernix-surface: linear-gradient(135deg, #141416 0%, #0a0a0b 100%);
+    --ornate-corner: 15px;
+    --ornate-stroke: 2px;
+    --ornate-inset: 12px;
+    /* Пример подключения арта:
+    --zernix-logo-dragon: url("/logo_dragon.png");
+    --zernix-d20-art: url("/d20_dice.png");
+    --zernix-home-hero: url("/your_dragon_background.png");
+    */
   }
 
   html {
     scrollbar-gutter: stable;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(212, 175, 55, 0.35) transparent;
     -webkit-tap-highlight-color: transparent;
   }
 
+  html::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  html::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  html::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, rgba(212, 175, 55, 0.45), rgba(138, 109, 59, 0.35));
+    border-radius: 4px;
+  }
+
   body {
-    @apply font-sans min-h-[100dvh] overscroll-none;
+    @apply font-sans min-h-[100dvh] overscroll-none text-[#e2e2e2];
     background-color: var(--tg-bg);
   }
 
   #root {
     @apply min-h-[100dvh];
+  }
+}
+
+@layer components {
+  .zernix-app-root {
+    background-color: #050505;
+    /*
+     * Дополнительный полноэкранный фон (опционально): background-image: var(--zernix-bg-fullscreen);
+     * или используйте только слой .zernix-app-bg::after с --zernix-home-hero.
+     */
+  }
+
+  .zernix-app-bg {
+    pointer-events: none;
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    background:
+      radial-gradient(ellipse 90% 55% at 50% -8%, rgba(212, 175, 55, 0.06), transparent 52%),
+      radial-gradient(ellipse 70% 45% at 50% 108%, rgba(138, 109, 59, 0.05), transparent 55%),
+      #050505;
+  }
+
+  .zernix-app-bg::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    opacity: 0.22;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    mix-blend-mode: overlay;
+  }
+
+  .zernix-app-bg::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    opacity: 0.28;
+    background-image: var(--zernix-home-hero, none);
+    background-size: min(1100px, 100vw) auto;
+    background-position: center 8%;
+    background-repeat: no-repeat;
+    filter: saturate(0.85) contrast(1.05);
+    mask-image: radial-gradient(ellipse 85% 70% at 50% 22%, #000 10%, transparent 72%);
+  }
+
+  .zernix-panel {
+    @apply rounded-none border border-gold/25 bg-abyss-panel shadow-panelEdge backdrop-blur-sm;
+    box-shadow:
+      0 0 0 1px rgba(212, 175, 55, 0.14),
+      inset 0 0 20px rgba(212, 175, 55, 0.05),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05),
+      0 16px 48px rgba(0, 0, 0, 0.45);
+  }
+
+  .zernix-logo-slot {
+    border-radius: 0;
+    box-shadow: inset 0 0 18px rgba(212, 175, 55, 0.05);
+    background-color: rgba(0, 0, 0, 0.5);
+  }
+
+  .zernix-brand-mark {
+    min-width: 3rem;
+    min-height: 3rem;
+    border-radius: 0;
+    border: 1px solid rgba(197, 160, 89, 0.35);
+    background-color: rgba(0, 0, 0, 0.35);
+    /* Без своего файла — линейный знак «Z»; задайте --zernix-brand-logo: url(...) чтобы заменить */
+    background-image: var(
+      --zernix-brand-logo,
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23d4af37' stroke-width='1.35' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 4h12l-8 8h8l-12 8'/%3E%3C/svg%3E")
+    );
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
+    box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.55), 0 0 18px rgba(212, 175, 55, 0.08);
+  }
+
+  /* Архитектурные карточки: затухающие рёбра + Г-углы (::before TL/BR, ::after TR/BL) */
+  .zernix-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(212, 175, 55, 0.42) transparent;
+  }
+
+  .zernix-scrollbar::-webkit-scrollbar {
+    width: 5px;
+  }
+
+  .zernix-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .zernix-scrollbar::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, rgba(212, 175, 55, 0.55), rgba(138, 109, 59, 0.42));
+    border-radius: 100px;
+    border: 1px solid rgba(0, 0, 0, 0.4);
+  }
+
+  .zernix-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, rgba(212, 175, 55, 0.78), rgba(138, 109, 59, 0.55));
+  }
+
+  .zernix-ornate-card {
+    position: relative;
+    isolation: isolate;
+    border-radius: 0;
+  }
+
+  .zernix-ornate-card__rim {
+    position: absolute;
+    inset: 0;
+    border-radius: 0;
+    pointer-events: none;
+    z-index: 0;
+    background-image:
+      linear-gradient(
+        90deg,
+        rgba(212, 175, 55, 0.96) 0%,
+        rgba(212, 175, 55, 0.26) 26%,
+        transparent 50%,
+        rgba(212, 175, 55, 0.26) 74%,
+        rgba(212, 175, 55, 0.96) 100%
+      ),
+      linear-gradient(
+        90deg,
+        rgba(212, 175, 55, 0.96) 0%,
+        rgba(212, 175, 55, 0.26) 26%,
+        transparent 50%,
+        rgba(212, 175, 55, 0.26) 74%,
+        rgba(212, 175, 55, 0.96) 100%
+      ),
+      linear-gradient(
+        180deg,
+        rgba(212, 175, 55, 0.96) 0%,
+        rgba(212, 175, 55, 0.26) 26%,
+        transparent 50%,
+        rgba(212, 175, 55, 0.26) 74%,
+        rgba(212, 175, 55, 0.96) 100%
+      ),
+      linear-gradient(
+        180deg,
+        rgba(212, 175, 55, 0.96) 0%,
+        rgba(212, 175, 55, 0.26) 26%,
+        transparent 50%,
+        rgba(212, 175, 55, 0.26) 74%,
+        rgba(212, 175, 55, 0.96) 100%
+      );
+    background-size:
+      100% var(--ornate-stroke),
+      100% var(--ornate-stroke),
+      var(--ornate-stroke) 100%,
+      var(--ornate-stroke) 100%;
+    background-position:
+      top center,
+      bottom center,
+      left center,
+      right center;
+    background-repeat: no-repeat;
+  }
+
+  .zernix-ornate-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 0;
+    pointer-events: none;
+    z-index: 1;
+    background:
+      linear-gradient(var(--gold-line), var(--gold-line)) var(--ornate-inset) var(--ornate-inset) /
+        var(--ornate-corner) var(--ornate-stroke) no-repeat,
+      linear-gradient(var(--gold-line), var(--gold-line)) var(--ornate-inset) var(--ornate-inset) /
+        var(--ornate-stroke) var(--ornate-corner) no-repeat,
+      linear-gradient(var(--gold-line), var(--gold-line))
+        calc(100% - var(--ornate-inset) - var(--ornate-corner))
+        calc(100% - var(--ornate-inset) - var(--ornate-stroke)) / var(--ornate-corner) var(--ornate-stroke)
+        no-repeat,
+      linear-gradient(var(--gold-line), var(--gold-line))
+        calc(100% - var(--ornate-inset) - var(--ornate-stroke))
+        calc(100% - var(--ornate-inset) - var(--ornate-corner)) / var(--ornate-stroke) var(--ornate-corner)
+        no-repeat;
+  }
+
+  .zernix-ornate-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 0;
+    pointer-events: none;
+    z-index: 1;
+    background:
+      linear-gradient(var(--gold-line), var(--gold-line))
+        calc(100% - var(--ornate-inset) - var(--ornate-corner)) var(--ornate-inset) /
+        var(--ornate-corner) var(--ornate-stroke) no-repeat,
+      linear-gradient(var(--gold-line), var(--gold-line))
+        calc(100% - var(--ornate-inset) - var(--ornate-stroke)) var(--ornate-inset) /
+        var(--ornate-stroke) var(--ornate-corner) no-repeat,
+      linear-gradient(var(--gold-line), var(--gold-line))
+        var(--ornate-inset) calc(100% - var(--ornate-inset) - var(--ornate-corner)) /
+        var(--ornate-corner) var(--ornate-stroke) no-repeat,
+      linear-gradient(var(--gold-line), var(--gold-line))
+        var(--ornate-inset) calc(100% - var(--ornate-inset) - var(--ornate-stroke)) /
+        var(--ornate-stroke) var(--ornate-corner) no-repeat;
+  }
+
+  .zernix-ornate-card__body {
+    position: relative;
+    z-index: 2;
+    margin: 2px;
+    border-radius: 0;
+    background:
+      radial-gradient(ellipse 105% 95% at 50% 42%, rgba(28, 28, 30, 0.55) 0%, transparent 62%),
+      var(--zernix-surface);
+    box-shadow:
+      inset 0 0 20px rgba(212, 175, 55, 0.05),
+      inset 0 0 72px rgba(0, 0, 0, 0.42);
+    backdrop-filter: blur(12px);
+  }
+
+  .zernix-ornate-card--accent .zernix-ornate-card__body {
+    box-shadow:
+      inset 0 0 22px rgba(212, 175, 55, 0.08),
+      inset 0 0 72px rgba(0, 0, 0, 0.42),
+      0 0 48px rgba(212, 175, 55, 0.11);
+  }
+
+  .zernix-inset-plaque {
+    border-radius: 0;
+    border: 1px solid rgba(212, 175, 55, 0.22);
+    box-shadow: inset 0 0 18px rgba(212, 175, 55, 0.06);
+    background: rgba(0, 0, 0, 0.38);
+  }
+
+  input[type="checkbox"].zernix-checkbox {
+    appearance: none;
+    border-radius: 3px;
+    border: 1px solid rgba(197, 160, 89, 0.45);
+    background-color: rgba(0, 0, 0, 0.45);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+
+  input[type="checkbox"].zernix-checkbox:checked {
+    border-color: rgba(197, 160, 89, 0.85);
+    background-color: rgba(197, 160, 89, 0.22);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M3 8.5 6.2 12 13 4.5' stroke='%23d4af37' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-size: 0.85rem;
+    background-position: center;
+    background-repeat: no-repeat;
+  }
+
+  input[type="checkbox"].zernix-checkbox:focus-visible {
+    outline: 2px solid rgba(197, 160, 89, 0.45);
+    outline-offset: 2px;
   }
 }
 

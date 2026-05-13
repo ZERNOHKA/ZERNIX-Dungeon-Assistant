@@ -15,6 +15,8 @@ export interface GenerateLootPayload {
   chestCount?: number;
   /** Логировать SQL и контекст в консоль (DevTools) и в ответе `sqlLog` */
   debugSql?: boolean;
+  /** Контекстный тег для весов `items.tags` / lore (urban, dungeon, wilderness) */
+  contextTag?: string;
   /** Только старый «гибрид по CR» без встречи */
   legacyHybrid?: boolean;
   /** @deprecated Использовалось в старой версии Electron */
@@ -27,6 +29,45 @@ export interface SessionPrepMeta {
   floorDepthEcho: number;
   /** +0.15 если отряд прошлой генерации был в роли разведки (тревога в следующей комнате). */
   scoutAlarmNextRoomXpBonus?: number;
+  partyLevel?: number;
+  playerCount?: number;
+  difficulty?: string;
+  /** Идентификатор сценической темы из `session-scene-themes.mjs`. */
+  sessionThemeId?: string;
+  /** Тип сцены: combat | social | exploration | mystery | horror | chase — см. `session-scene-types.mjs`. */
+  sessionSceneTypeId?: string;
+  /** Нарративный биом (laboratory, city, cave, …) — см. `location-context.mjs`. */
+  narrativeBiomeId?: string;
+  /** Id структурированной локации из `dm-location-catalog.mjs`. */
+  dmLocationId?: string;
+}
+
+/** Компактный стол-бриф для живой игры — без markdown; стилизует UI. */
+export interface SessionBrief {
+  title: string;
+  /** Сцена привязана к теме — все блоки согласованы с ней. */
+  themeLabel: string;
+  /** Тип сцены (ритм): бой, социалка, тайна… */
+  sceneTypeLabel?: string;
+  sceneTypeId?: string;
+  /** Логический биом для кураторства врагов/опасностей */
+  biomeLabel?: string;
+  /** Одно предложение: что происходит и кто в центре */
+  encounterPitch?: string;
+  /** Краткий контекст региона / угрозы */
+  worldSummary?: string;
+  /** Фракции сцены для ГМ */
+  factionHintsLine?: string;
+  /** Имя структурированной локации (каталог DM) */
+  locationStructuredName?: string;
+  /** Зоны / комнаты цепочкой */
+  locationZonesLine?: string;
+  location: string;
+  atmosphere: string;
+  danger: string;
+  enemies: string[];
+  rewardLines: string[];
+  hook: string;
 }
 
 /** Сводка предметов с флагами износа — см. `lootDigest.ts` (идентичная форма). */
@@ -36,8 +77,20 @@ export interface LootDigestPayload {
   labItems: string;
   labMagic: string;
   goldLine: string;
-  mundane: Array<{ displayLine: string; needsRepair: boolean; statusLine?: string }>;
-  magic: Array<{ displayLine: string; needsRepair: boolean; statusLine?: string }>;
+  mundane: Array<{
+    displayLine: string;
+    needsRepair: boolean;
+    statusLine?: string;
+    conditionPrefixRu?: string;
+    costAdjustNoteRu?: string;
+  }>;
+  magic: Array<{
+    displayLine: string;
+    needsRepair: boolean;
+    statusLine?: string;
+    conditionPrefixRu?: string;
+    costAdjustNoteRu?: string;
+  }>;
 }
 
 export type GenerateLootResult =
@@ -46,6 +99,7 @@ export type GenerateLootResult =
       markdown: string;
       sqlLog?: string[];
       meta?: SessionPrepMeta;
+      sessionBrief?: SessionBrief;
       /** Связный текст контекстного поиска (карточка истории под сводкой золота); включает `[MASTER_ONLY]` для ГМ */
       narrativeBlock?: string;
       lootDigest?: LootDigestPayload;
@@ -92,6 +146,12 @@ export interface GenerateNpcPayload {
   genderId?: "female" | "male";
   greetingMood?: string;
   professionId?: string;
+  /** Подпись роли из UI (Союзник, Наставник…) — во фразу «встречи» */
+  partyRoleLabelRu?: string;
+  /** Контекст для БД: urban | dungeon | wilderness */
+  contextTag?: string;
+  /** Режим «Босс»: +50% HP, +2 КД, легендарная черта */
+  bossMode?: boolean;
 }
 
 export type GenerateNpcResult =
@@ -110,8 +170,12 @@ export interface NetworkSettingsState {
   serving?: boolean;
   /** Полная сборка с loot-core / npc-engine */
   localEnginesPresent?: boolean;
-  /** Нет движков и не задан удалённый хост */
+  /** Нет движков и не задан удалённый хост (полная сборка) */
   needsHostConnection?: boolean;
+  /** Клиентская сборка NSIS: только удалённый API */
+  isClientOnlyBuild?: boolean;
+  /** Клиентская сборка: не заполнены URL и/или API-ключ */
+  needsRemoteCredentials?: boolean;
   clientRemoteRequiredMessage?: string;
 }
 

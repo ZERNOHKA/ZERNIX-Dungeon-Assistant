@@ -15,6 +15,7 @@ import { app } from "electron";
 import {
   openLootDatabase,
   setLootDatabasePath,
+  applyZernixNexusMigrationsAsync,
   buildLootOnlyDataset,
   formatLootItemDisplayLine,
   formatHybridLootMarkdownReport,
@@ -38,6 +39,10 @@ import {
   beginLootSqlDebug,
   endLootSqlDebug,
 } from "../tools/dnd-loot-sqlite/lib/lootSqlDebug.mjs";
+import {
+  rollItemDurabilityOrQualityPrefix,
+  formatAdjustedPriceNoteRu,
+} from "../tools/dnd-loot-sqlite/lib/item-durability-flaw.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -104,7 +109,9 @@ async function buildContextualNarrativeLoot(database, d, environment, rng, party
    * @param {'mundane'|'magic'} slot
    */
   function processRow(row, isMagic, slot) {
-    const label = formatLootItemDisplayLine(database, row);
+    const baseLabel = formatLootItemDisplayLine(database, row);
+    const flaw = rollItemDurabilityOrQualityPrefix(rng);
+    const label = flaw ? `${flaw.prefixRu} ${baseLabel}` : baseLabel;
     const sit = pickSituation(bucket, rng);
     const roll = rollVsDc(sit.difficulty, bonus, rng);
     const echo = pickItemNarrative(rng);
@@ -113,29 +120,33 @@ async function buildContextualNarrativeLoot(database, d, environment, rng, party
     const twist = pickItemTwist(rng);
     const sensory = pickSensoryDetail(rng, isMagic, twist.kind === "curse" ? "curse" : null);
 
-    const twistLead =
-      twist.kind === "curse"
-        ? ` Что-то в предмете не спит: ${twist.flavorRu}`
-        : ` Заметка мира: ${twist.flavorRu}`;
-
     const makerEcho = NPC_NAMES && rng() < 0.1 ? formatMakerStamp(NPC_NAMES, rng) : "";
+
+    const quip = `${echoLower.split(".")[0] ?? echoLower}`.trim();
+    const bite = `${String(sensory).split(".")[0] ?? sensory}`.trim();
+    const twistBit = twist?.flavorRu ? String(twist.flavorRu).split(".")[0] : "";
 
     let playerLine = "";
     if (roll.success) {
+      const hook = twistBit ? ` ${twistBit}.` : "";
       playerLine = isMagic
-        ? `Внимательно осмотрев **${sit.location}**, вы после проверки **${sit.skill}** **DC ${sit.difficulty}** *(d20 ${roll.d20} + ${roll.bonus} = **${roll.total}**)* выводите на свет **${label}**. Он ${echoLower}${twistLead} Руки считывают силу: ${sensory}`
-        : `Внимательно осмотрев **${sit.location}**, вы после проверки **${sit.skill}** **DC ${sit.difficulty}** *(d20 ${roll.d20} + ${roll.bonus} = **${roll.total}**)* обнаружили **${label}**. Он ${echoLower}${twistLead} Прикосновение: ${sensory}`;
+        ? `**${label}** — ${quip}.${hook} *${bite}*`
+        : `**${label}** — ${quip}. *${bite}*`;
     } else if (
       (!isMagic && (sit.skill === "Ловкость рук" || rng() < 0.3)) ||
       (isMagic && (sit.skill === "Магия" || rng() < 0.35))
     ) {
       playerLine = !isMagic
-        ? `Проверка **${sit.skill}** **DC ${sit.difficulty}** *(d20 ${roll.d20} + ${roll.bonus} = ${roll.total})* даёт **провал** — ловушка щёлкнула бы раньше пальцев; **${label}** мог бы уцелеть ценой крови (**Мастер:** 1к4 колющего). Вы всё же выходите сухими: предмет ${echoLower}${twistLead} Кожа ловит: ${sensory}`
-        : `На **${sit.skill}** **DC ${sit.difficulty}** *(d20 ${roll.d20} + ${roll.bonus} = ${roll.total})* — **провал**: резонанс мог бы обжечь ладони (**Мастер:** 1к6 некротического по решению Мастера). **${label}** удержан: он ${echoLower}${twistLead} Нервы дрожат: ${sensory}`;
+        ? `**${label}** — проверка сорвалась; вы удержали предмет ценой осторожности. *${bite}*`
+        : `**${label}** — резонанс дёрнул руки; удержать можно. *${bite}*`;
     } else {
       playerLine = !isMagic
-        ? `Проверка **${sit.skill}** **DC ${sit.difficulty}** *(d20 ${roll.d20} + ${roll.bonus} = ${roll.total})* — **провал**: без успеха **${label}** растворился бы в тени **${sit.location}**. Вы цепляетесь за деталь: он ${echoLower}${twistLead} Альтернативное ощущение: ${sensory}`
-        : `Проверка **${sit.skill}** **DC ${sit.difficulty}** *(d20 ${roll.d20} + ${roll.bonus} = ${roll.total})* не проходит — **${label}** почти ускользает из фокуса. Интуиция спасает: он ${echoLower}${twistLead} Искажение реальности на коже: ${sensory}`;
+        ? `**${label}** — почти ускользнул; вы цепляетесь за деталь. *${bite}*`
+        : `**${label}** — фокус пляшет, но добыча в руках. *${bite}*`;
+    }
+
+    if (makerEcho) {
+      playerLine = `${playerLine} _(${makerEcho})_`;
     }
 
     storyLines.push(playerLine);
@@ -144,6 +155,8 @@ async function buildContextualNarrativeLoot(database, d, environment, rng, party
       displayLine: label,
       needsRepair: damaged,
       statusLine: damaged ? "Состояние: Ветхое / Требуется ремонт" : undefined,
+      conditionPrefixRu: flaw?.prefixRu,
+      costAdjustNoteRu: flaw ? formatAdjustedPriceNoteRu(Number(row.cost_gp), flaw.gpMul) : undefined,
     };
     if (slot === "mundane") {
       mundaneDigest.push(digestEntry);
@@ -234,6 +247,7 @@ export async function runGenerateHybridMarkdown(cr, gold, categories = []) {
   setLootDatabasePath(dbPath);
   const db = openLootDatabase(dbPath);
   try {
+    await applyZernixNexusMigrationsAsync(db);
     return formatHybridLootMarkdownReport(db, gold, cr, categories, Math.random);
   } finally {
     db.close();
@@ -279,6 +293,7 @@ export async function runGenerateLootMarkdown(payload) {
   const dbPath = resolveLootSqlitePathForElectron();
   setLootDatabasePath(dbPath);
   const db = openLootDatabase(dbPath);
+  await applyZernixNexusMigrationsAsync(db);
   const debugSql = Boolean(p.debugSql);
   if (debugSql) {
     beginLootSqlDebug();
@@ -298,6 +313,10 @@ export async function runGenerateLootMarkdown(payload) {
       playerCount: Number(p.playerCount ?? 4),
       difficulty: String(p.difficulty ?? "moderate"),
       environment: String(p.environment ?? "any"),
+      contextTag:
+        p.contextTag != null && String(p.contextTag).trim()
+          ? String(p.contextTag).trim().toLowerCase()
+          : undefined,
       goldLimitGp: Number(p.gold ?? 300),
       categories: Array.isArray(p.categories)
         ? p.categories.map((x) => String(x)).filter((s) => s.length > 0)

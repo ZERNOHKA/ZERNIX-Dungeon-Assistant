@@ -74,6 +74,58 @@ export interface SessionPrepJson {
   environmentHints: SessionPrepEnvironmentHint[];
 }
 
+export interface DashboardPartyMember {
+  name: string;
+  subtitle: string;
+  level: number;
+  hpCurrent: number;
+  hpMax: number;
+  /** Пусто или отсутствует — используются инициалы */
+  avatarUrl?: string;
+}
+
+export interface DashboardActiveSession {
+  title: string;
+  tags: string[];
+  members: DashboardPartyMember[];
+  ctaLabel: string;
+  ctaRoute: AppRoute;
+}
+
+export interface DashboardNoteEntry {
+  icon: string;
+  text: string;
+  time: string;
+}
+
+export interface DashboardFavoriteEntry {
+  icon: string;
+  labelRu: string;
+  sublabelRu?: string;
+}
+
+export interface DashboardSpellStat {
+  labelRu: string;
+  valueRu: string;
+}
+
+export interface DashboardFeaturedSpell {
+  titleRu: string;
+  subtitleRu: string;
+  description: string;
+  stats: DashboardSpellStat[];
+  /** Имя иконки из IconByName или lucide-hint */
+  iconHint?: string;
+}
+
+export interface DashboardJson {
+  tagline?: string;
+  activeSession?: DashboardActiveSession;
+  recentNotes?: DashboardNoteEntry[];
+  favorites?: DashboardFavoriteEntry[];
+  featuredSpell?: DashboardFeaturedSpell;
+}
+
 export interface AppContentJson {
   meta: {
     title: string;
@@ -110,4 +162,6 @@ export interface AppContentJson {
   };
   statuses: StatusEntry[];
   sessionPrep?: SessionPrepJson;
+  /** Макет главной (дашборд) и демо правой панели — подставляется из JSON */
+  dashboard?: DashboardJson;
 }

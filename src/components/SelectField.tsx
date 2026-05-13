@@ -7,14 +7,14 @@ interface SelectFieldProps extends SelectHTMLAttributes<HTMLSelectElement> {
 
 export function SelectField({ label, className = "", children, ...rest }: SelectFieldProps) {
   return (
-    <label className="flex w-full flex-col gap-2 text-sm text-zinc-300">
+    <label className="flex w-full flex-col gap-2 text-sm text-zinc-400">
       <span className="tracking-wide">{label}</span>
       <div className="relative">
         <select
           {...rest}
           className={[
-            "w-full appearance-none rounded-xl border border-gold/25 bg-abyss-elevated py-3 pl-4 pr-12 text-[15px] text-zinc-100 outline-none",
-            "focus:border-gold/60 focus:shadow-goldGlow",
+            "w-full appearance-none rounded-zernix border border-gold/28 bg-abyss-elevated py-3 pl-4 pr-12 text-[15px] text-zinc-100 outline-none shadow-innerGold",
+            "focus:border-gold/55 focus:shadow-goldGlow",
             className,
           ].join(" ")}
         >

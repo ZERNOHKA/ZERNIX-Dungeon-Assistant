@@ -1,10 +1,11 @@
-import { ChevronDown, Dice5, Hammer, Loader2, Send, Star, X } from "lucide-react";
+import { ChevronDown, Dice5, Loader2, Send, Star, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { AppContentJson, LootItem } from "../../types/content";
 import type { LootDigestPayload } from "../../types/lootDigest";
 import { DungeonCard } from "../DungeonCard";
 import { GoldButton } from "../GoldButton";
 import { HeaderBar } from "../HeaderBar";
+import { TreasuresPanel } from "../loot/TreasuresPanel";
 import { PageFade } from "../PageFade";
 import { ZernixMarkdownBody } from "../ZernixMarkdownBody";
 import { notifyTelegramOrFallback } from "../../lib/telegramShare";
@@ -42,86 +43,6 @@ function MasterAccordion({ gmMarkdown }: { gmMarkdown: string }) {
   );
 }
 
-function LootDigestRich({
-  digest,
-  needsBanner,
-}: {
-  digest: LootDigestPayload;
-  needsBanner: boolean;
-}) {
-  const ItemLine = ({ displayLine, needsRepair }: { displayLine: string; needsRepair: boolean }) => (
-    <div className="flex min-w-0 flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-2">
-      <span className="flex min-w-0 items-start gap-2">
-        {needsRepair ? (
-          <Hammer
-            className="mt-0.5 size-4 shrink-0 text-rose-400/95 drop-shadow-[0_0_8px_rgba(251,113,133,0.35)]"
-            strokeWidth={2}
-            aria-hidden
-          />
-        ) : (
-          <span className="mt-2 inline-block size-1.5 shrink-0 rounded-full bg-gold/80 shadow-goldGlow" />
-        )}
-        <strong className="font-semibold text-gold/95">{displayLine}</strong>
-      </span>
-      {needsRepair ? (
-        <span className="text-[11px] font-medium text-amber-200/90 sm:whitespace-nowrap">
-          Состояние: Ветхое / Требуется ремонт
-        </span>
-      ) : null}
-    </div>
-  );
-
-  return (
-    <div className="space-y-5">
-      {needsBanner ? (
-        <div className="rounded-lg border border-amber-800/40 bg-amber-950/25 px-3 py-2 text-[11px] leading-snug text-amber-100/90 lg:text-xs">
-          В колодце находок есть ветхие предметы — направьте игроков к кузнецу или кожевнику через генератор NPC.
-        </div>
-      ) : null}
-
-      <div className="rounded-xl border border-gold/20 bg-black/40 px-4 py-3 lg:px-5 lg:py-4">
-        <p className="font-serif text-sm text-gold lg:text-base">
-          <strong>{digest.labGold}</strong> {digest.goldLine}
-        </p>
-      </div>
-
-      <div className="rounded-xl border border-gold/15 bg-black/35 px-4 py-3 lg:px-5 lg:py-4">
-        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500">{digest.labItems}</p>
-        {digest.mundane.length === 0 ? (
-          <p className="text-sm text-zinc-500">—</p>
-        ) : (
-          <ul className="space-y-3">
-            {digest.mundane.map((m, idx) => (
-              <li key={`mun-${idx}-${m.displayLine.slice(0, 24)}`} className="text-[13px] leading-snug text-zinc-200 lg:text-[14px]">
-                <ItemLine displayLine={m.displayLine} needsRepair={m.needsRepair} />
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
-      <div className="rounded-xl border border-gold/15 bg-black/35 px-4 py-3 lg:px-5 lg:py-4">
-        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500">{digest.labMagic}</p>
-        {digest.magic.length === 0 ? (
-          <p className="text-sm text-zinc-500">—</p>
-        ) : (
-          <ul className="space-y-3">
-            {digest.magic.map((m, idx) => (
-              <li key={`mag-${idx}-${m.displayLine.slice(0, 24)}`} className="text-[13px] leading-snug text-zinc-200 lg:text-[14px]">
-                <ItemLine displayLine={m.displayLine} needsRepair={m.needsRepair} />
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
-      <p className="text-[11px] leading-snug text-zinc-500">
-        Таблицы сокровищ и CR — по DMG 2024 / D&amp;D 5.5; предметы из SQLite SRD.
-      </p>
-    </div>
-  );
-}
-
 interface LootResultScreenProps {
   item: LootItem | null;
   markdown: string | null;
@@ -147,7 +68,8 @@ export function LootResultScreen({
   variant = "page",
   rerollBusy = false,
 }: LootResultScreenProps) {
-  const isMarkdown = markdown != null && markdown.length > 0;
+  /** Текст отчёта SRD (после trim); пустая строка не считается контентом */
+  const hasMarkdownText = markdown != null && markdown.trim().length > 0;
   const rawEn = item ? (item.name ?? "").trim() : "";
   const rawRu = item ? (item.nameRu ?? "").trim() : "";
   const titlePrimary = rawRu || rawEn;
@@ -169,20 +91,38 @@ export function LootResultScreen({
     };
   }, [narrativeBlock]);
 
-  const sharePayload = isMarkdown
-    ? narrativeBlock != null && narrativeBlock.trim().length > 0
-      ? `${narrativeBlock.trim()}\n\n✦ **───────────────** ✦\n\n${markdown}`
-      : markdown
-    : item
-      ? `${titlePrimary}${titleShowEnglishParen ? ` (${rawEn})` : ""} (${rarity.labelRu})\n${displayFlavor}`
+  const showSqliteReport =
+    hasMarkdownText ||
+    Boolean(lootDigest) ||
+    playerNarrative.length > 0 ||
+    Boolean(gmInsight.trim());
+
+  const digestShareText =
+    lootDigest != null
+      ? [
+          `${lootDigest.labGold} ${lootDigest.goldLine}`,
+          ...lootDigest.mundane.map((m) => m.displayLine),
+          ...lootDigest.magic.map((m) => m.displayLine),
+        ].join("\n")
       : "";
+
+  const sharePayload =
+    item && !hasMarkdownText
+      ? `${titlePrimary}${titleShowEnglishParen ? ` (${rawEn})` : ""} (${rarity.labelRu})\n${displayFlavor}`
+      : hasMarkdownText
+        ? narrativeBlock != null && narrativeBlock.trim().length > 0
+          ? `${narrativeBlock.trim()}\n\n✦ **───────────────** ✦\n\n${markdown!.trim()}`
+          : markdown!.trim()
+        : digestShareText;
+
+  const shareAsTextLoot = hasMarkdownText || Boolean(lootDigest) || playerNarrative.length > 0;
 
   const imageClass = variant === "panel" ? "size-[100px] lg:size-[128px]" : "size-[120px] lg:size-[140px]";
   const titleClass =
     variant === "panel" ? "font-serif text-lg text-gold xl:text-xl" : "font-serif text-xl text-gold lg:text-2xl";
 
   const card =
-    item && !isMarkdown ? (
+    item && !hasMarkdownText ? (
       <DungeonCard glow className="overflow-hidden shadow-goldGlow">
         <div className={`flex gap-4 p-4 lg:gap-5 lg:p-5 ${variant === "panel" ? "flex-col sm:flex-row" : ""}`}>
           <div
@@ -227,7 +167,7 @@ export function LootResultScreen({
     ) : null;
 
   const narrativeCard =
-    isMarkdown && playerNarrative.length > 0 ? (
+    playerNarrative.length > 0 ? (
       <DungeonCard className="overflow-hidden border border-gold/35 bg-black/55 shadow-[0_0_24px_rgba(212,175,55,0.08)]">
         <div className="border-b border-gold/15 bg-black/35 px-4 py-2 lg:px-5">
           <p className="font-serif text-sm tracking-wide text-gold lg:text-base">Контекстный поиск</p>
@@ -239,7 +179,7 @@ export function LootResultScreen({
       </DungeonCard>
     ) : null;
 
-  const markdownBlock = isMarkdown ? (
+  const markdownBlock = showSqliteReport ? (
     <div className="max-h-[min(70vh,560px)] overflow-y-auto rounded-xl border border-gold/20 bg-black/45 p-4 shadow-inner lg:p-5">
       <p className="mb-3 text-[11px] leading-snug text-zinc-500">
         В шапке отчёта — параметры <span className="text-zinc-400">последнего броска</span>. На широкой вёрстке поля слева
@@ -253,9 +193,19 @@ export function LootResultScreen({
         <div className="my-4 h-px bg-gradient-to-r from-transparent via-gold/25 to-transparent" aria-hidden />
       ) : null}
       {lootDigest ? (
-        <LootDigestRich digest={lootDigest} needsBanner={lootDigest.needsRepair} />
-      ) : markdown ? (
+        <TreasuresPanel digest={lootDigest} needsBanner={lootDigest.needsRepair} />
+      ) : hasMarkdownText && markdown ? (
         <ZernixMarkdownBody markdown={markdown} />
+      ) : null}
+      {showSqliteReport &&
+      !lootDigest &&
+      !hasMarkdownText &&
+      !playerNarrative.length &&
+      !gmInsight.trim() ? (
+        <p className="text-sm leading-relaxed text-amber-200/90">
+          Ответ генератора пришёл без текста и без сводки. Проверьте подключение к хосту в настройках сети или пересоберите
+          приложение с актуальной базой <code className="text-gold/90">dnd-loot.sqlite</code>.
+        </p>
       ) : null}
     </div>
   ) : null;
@@ -266,7 +216,9 @@ export function LootResultScreen({
         <GoldButton
           variant="gold"
           icon={<Send className="size-5 lg:size-6" aria-hidden />}
-          onClick={() => notifyTelegramOrFallback(sharePayload, isMarkdown ? "Поделиться текстом" : "Поделиться предметом")}
+          onClick={() =>
+            notifyTelegramOrFallback(sharePayload, shareAsTextLoot ? "Поделиться текстом" : "Поделиться предметом")
+          }
         >
           Переслать в чат
         </GoldButton>
@@ -303,7 +255,7 @@ export function LootResultScreen({
     </>
   );
 
-  const panelSubtitle = isMarkdown ? "SRD · SQLite" : rarity.labelRu;
+  const panelSubtitle = showSqliteReport ? "SRD · SQLite" : rarity.labelRu;
 
   if (variant === "panel") {
     return (
@@ -311,7 +263,7 @@ export function LootResultScreen({
         <div className="mb-4 flex items-start justify-between gap-3 border-b border-gold/15 pb-3">
           <div className="min-w-0">
             <p className="font-serif text-lg tracking-wide text-gold xl:text-xl">
-              {isMarkdown ? "ZERNIX Dungeon Assistant" : "Результат"}
+              {showSqliteReport ? "ZERNIX Dungeon Assistant" : "Результат"}
             </p>
             <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">{panelSubtitle}</p>
           </div>
@@ -333,8 +285,8 @@ export function LootResultScreen({
     );
   }
 
-  const pageTitle = isMarkdown ? "ZERNIX Dungeon Assistant" : titlePrimary || "Результат";
-  const pageSubtitle = isMarkdown ? "SRD · SQLite" : rarity.labelRu.toUpperCase();
+  const pageTitle = showSqliteReport ? "ZERNIX Dungeon Assistant" : titlePrimary || "Результат";
+  const pageSubtitle = showSqliteReport ? "SRD · SQLite" : rarity.labelRu.toUpperCase();
 
   return (
     <PageFade>

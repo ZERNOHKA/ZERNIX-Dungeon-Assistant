@@ -5,29 +5,43 @@ export default {
     extend: {
       colors: {
         gold: {
-          DEFAULT: "#D4AF37",
-          dim: "#8a7024",
-          glow: "rgba(212, 175, 55, 0.35)",
+          DEFAULT: "#d4af37",
+          classic: "#d4af37",
+          bright: "#e8d5a3",
+          dim: "#8a6d3b",
+          glow: "rgba(212, 175, 55, 0.38)",
+        },
+        bronze: {
+          DEFAULT: "#8B6B3F",
+          muted: "#5c4a32",
         },
         abyss: {
-          bg: "#0c0d10",
-          card: "#14161c",
-          elevated: "#1a1d26",
+          bg: "#000000",
+          deep: "#050505",
+          card: "#121212",
+          elevated: "#181818",
+          panel: "rgba(18, 18, 18, 0.88)",
         },
         rare: "#7c6b9e",
       },
       fontFamily: {
         serif: ["Cinzel", "Georgia", "serif"],
-        sans: ["DM Sans", "system-ui", "sans-serif"],
+        sans: ["Montserrat", "system-ui", "sans-serif"],
+      },
+      borderRadius: {
+        zernix: "6px",
       },
       boxShadow: {
-        goldGlow: "0 0 15px rgba(212, 175, 55, 0.3)",
-        innerGold: "inset 0 0 0 1px rgba(212, 175, 55, 0.25)",
-        cardLift: "0 8px 32px rgba(0, 0, 0, 0.45)",
+        goldGlow: "0 0 18px rgba(197, 160, 89, 0.28), 0 0 1px rgba(197, 160, 89, 0.45)",
+        innerGold:
+          "inset 0 1px 0 rgba(255, 255, 255, 0.06), inset 0 -1px 0 rgba(0, 0, 0, 0.45)",
+        innerGoldRing: "inset 0 0 0 1px rgba(197, 160, 89, 0.22)",
+        cardLift: "0 12px 40px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(197, 160, 89, 0.12)",
+        panelEdge: "0 0 0 1px rgba(197, 160, 89, 0.18), inset 0 1px 0 rgba(255,255,255,0.04)",
       },
       backgroundImage: {
         "gold-btn":
-          "linear-gradient(165deg, #d4af37 0%, #8a7024 50%, #5c4a17 100%)",
+          "linear-gradient(to bottom, #d4af37 0%, #8a6d3b 100%)",
         summon:
           "linear-gradient(165deg, #2d6a4f 0%, #1b4332 55%, #0f2e22 100%)",
         parchment:

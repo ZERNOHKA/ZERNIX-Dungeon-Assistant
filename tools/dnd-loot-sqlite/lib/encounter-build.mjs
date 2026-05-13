@@ -5,6 +5,19 @@
 
 import { normalizeEncounterThreat, totalEncounterXpBudget } from './encounterXpBudget.mjs';
 import {
+  ensureMonsterTagsColumn,
+  monsterHasBlockedTag,
+  monsterThemeTagScore,
+} from './monster-tag-utils.mjs';
+import { inferNarrativeBiome, pickCinematicHazardForBiome, listBiomePreferredTagsForScoring } from './location-context.mjs';
+import { normalizeScoringContext, warnScoringContractInvariants } from './dm-scoring-contract.mjs';
+import { validateEncounterPipeline, softenHazardForSceneType } from './dm-encounter-validate.mjs';
+import {
+  sortPoolByNarrativeScore,
+  pickBestMonsterByNarrativeScore,
+  filterPoolByNarrativeBiome,
+} from './narrative-monster-score.mjs';
+import {
   rollEncounterArchetype,
   rowContradictsBiome,
   maxCreaturesForArchetype,
@@ -23,7 +36,6 @@ import {
   dungeonTagsToSqlFragments,
   inferEncounterEcologyRole,
   rollBattlefieldHeightProfile,
-  rollEnvironmentalHazard,
   formatEncounterEcologyTacticsLocalized,
   formatEncounterEcologyRoleLabelRu,
 } from './loot-generator-55.mjs';
@@ -135,6 +147,58 @@ export function inferCryptEnvironmentFromKeywords(keywordFragments) {
       String(k),
     ),
   );
+}
+
+/**
+ * @param {string} sceneType combat|social|exploration|mystery|horror|chase
+ * @param {Record<string, unknown>} row
+ */
+function rowTypeLineMatchesSceneType(sceneType, row) {
+  const tl = String(row.type_line ?? '').toLowerCase();
+  const st = String(sceneType).toLowerCase();
+  if (st === 'social') return tl.includes('humanoid');
+  if (st === 'chase') return tl.includes('humanoid') || tl.includes('beast');
+  if (st === 'mystery') {
+    return (
+      tl.includes('humanoid') ||
+      tl.includes('undead') ||
+      tl.includes('fiend') ||
+      tl.includes('aberration') ||
+      tl.includes('shapechanger')
+    );
+  }
+  if (st === 'horror') {
+    return (
+      tl.includes('undead') ||
+      tl.includes('aberration') ||
+      tl.includes('fiend') ||
+      tl.includes('monstrosity') ||
+      tl.includes('humanoid')
+    );
+  }
+  if (st === 'exploration') {
+    return (
+      tl.includes('beast') ||
+      tl.includes('plant') ||
+      tl.includes('elemental') ||
+      tl.includes('monstrosity') ||
+      tl.includes('construct') ||
+      tl.includes('ooze')
+    );
+  }
+  return true;
+}
+
+/**
+ * @param {Array<Record<string, unknown>>} pool
+ * @param {string} sceneType
+ * @param {number} [minSize]
+ */
+function applySceneTypePoolNarrowing(pool, sceneType, minSize = 8) {
+  const st = String(sceneType ?? '').trim().toLowerCase();
+  if (!st || st === 'combat') return pool;
+  const narrowed = pool.filter((r) => rowTypeLineMatchesSceneType(st, r));
+  return narrowed.length >= minSize ? narrowed : pool;
 }
 
 /**
@@ -557,18 +621,6 @@ function monsterFitsDiversityCap(roster, candidateRow) {
 }
 
 /**
- * @template T
- * @param {T[]} arr
- * @param {() => number} rng
- */
-function shuffleInPlace(arr, rng) {
-  for (let i = arr.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(rng() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-}
-
-/**
  * @param {Record<string, unknown>} row
  */
 function monsterXp(row) {
@@ -580,6 +632,43 @@ function monsterXp(row) {
  */
 function monsterCr(row) {
   return Number(row.cr_numeric);
+}
+
+/**
+ * @typedef {'MAIN_THREAT'|'ENVIRONMENTAL_THREAT'|'TWIST_ENTITY'|'SUPPORT_ENTITY'} NarrativeEnemyRoleId
+ */
+
+/**
+ * Роли врагов для структуры сцены (якорь / поворот / среда / поддержка).
+ *
+ * @param {Array<{ row: Record<string, unknown>, count: number }>} roster
+ */
+function assignNarrativeEnemyRoles(roster) {
+  if (!roster.length) return roster;
+  const enriched = roster.map((entry, i) => ({
+    entry,
+    i,
+    cr: monsterCr(entry.row) * Math.max(1, Math.floor(Number(entry.count) || 0)),
+    type: primaryCreatureType(entry.row),
+  }));
+  enriched.sort((a, b) => b.cr - a.cr);
+  /** @type {Record<number, NarrativeEnemyRoleId>} */
+  const byOriginalIndex = {};
+  byOriginalIndex[enriched[0].i] = 'MAIN_THREAT';
+  for (let j = 1; j < enriched.length; j += 1) {
+    const { type, i } = enriched[j];
+    if (j === 1 && (type === 'aberration' || type === 'fiend' || type === 'shapechanger')) {
+      byOriginalIndex[i] = 'TWIST_ENTITY';
+    } else if (type === 'ooze' || type === 'elemental' || type === 'plant') {
+      byOriginalIndex[i] = 'ENVIRONMENTAL_THREAT';
+    } else {
+      byOriginalIndex[i] = 'SUPPORT_ENTITY';
+    }
+  }
+  return roster.map((entry, i) => ({
+    ...entry,
+    enemyRole: byOriginalIndex[i] ?? 'SUPPORT_ENTITY',
+  }));
 }
 
 /**
@@ -679,6 +768,7 @@ function pickSymbiosisPartnerType(anchorType, rng) {
  *     injured?: boolean,
  *     isLegendarySolo?: boolean,
  *     leaderVisualTrait?: string,
+ *     enemyRole?: 'MAIN_THREAT'|'ENVIRONMENTAL_THREAT'|'TWIST_ENTITY'|'SUPPORT_ENTITY',
  *   }>,
  *   budgetXp: number,
  *   actualXp: number,
@@ -719,9 +809,16 @@ function pickSymbiosisPartnerType(anchorType, rng) {
  * @param {string[]} [opts.persistentMonsterTags] теги из «памяти подземелья» (undead, cultist…)
  * @param {number} [opts.dungeonXpBudgetMultiplier] множитель к XP-бюджету (напр. 0.1 = +10%)
  * @param {number} [opts.floorDepth] глубина подземелья (DC опасностей)
+ * @param {string[]} [opts.thematicTags] теги сцены — сужают пул и взвешивают выбор
+ * @param {string[]} [opts.thematicExcludedTags] теги, которых в сцене быть не должно (лаборатория ≠ друид)
+ * @param {string} [opts.sceneType] combat|social|exploration|mystery|horror|chase — сужает пул по type_line
+ * @param {string} [opts.themeId] id темы сессии — нарративный биом и кинематографичные опасности
+ * @param {string[]} [opts.factionTags] теги фракций мира для скоринга когерентности
+ * @param {string} [opts.continuityText] непрерывность сюжета (описание + след + память подземелья)
  * @returns {BuiltEncounter}
  */
 export function buildEncounterFromDatabase(db, opts) {
+  ensureMonsterTagsColumn(db);
   const rng = typeof opts.rng === 'function' ? opts.rng : Math.random;
   const worldState = normalizeWorldState(opts.worldState) ?? rollWorldState(rng);
   const worldStateLabel = formatWorldStateLabelRuEn(worldState);
@@ -752,6 +849,18 @@ export function buildEncounterFromDatabase(db, opts) {
   const kw = Array.isArray(opts.keywordFragments)
     ? opts.keywordFragments.map((x) => String(x).trim()).filter((s) => s.length > 0)
     : [];
+  const thematicTags = Array.isArray(opts.thematicTags)
+    ? opts.thematicTags.map((x) => String(x).trim().toLowerCase()).filter((s) => s.length > 0)
+    : [];
+  const thematicExcludedTags = Array.isArray(opts.thematicExcludedTags)
+    ? opts.thematicExcludedTags.map((x) => String(x).trim().toLowerCase()).filter((s) => s.length > 0)
+    : [];
+  const sceneType = String(opts.sceneType ?? '')
+    .trim()
+    .toLowerCase();
+  const themeId = String(opts.themeId ?? '')
+    .trim()
+    .toLowerCase();
 
   /** Biome supremacy: ключ «Crypt» / склеп переопределяет окружение. */
   if (inferCryptEnvironmentFromKeywords(kw) || /^crypt$/i.test(String(opts.environment || '').trim())) {
@@ -825,6 +934,39 @@ export function buildEncounterFromDatabase(db, opts) {
     pool = poolBio;
   }
 
+  if (thematicTags.length > 0) {
+    const narrowed = pool.filter((r) => monsterThemeTagScore(r, thematicTags) >= 1);
+    if (narrowed.length >= 8) {
+      pool = narrowed;
+    }
+  }
+
+  if (thematicExcludedTags.length > 0) {
+    const noBlock = pool.filter((r) => !monsterHasBlockedTag(r, thematicExcludedTags));
+    if (noBlock.length >= 8) {
+      pool = noBlock;
+    }
+  }
+
+  pool = applySceneTypePoolNarrowing(pool, sceneType, 8);
+
+  const narrativeBiome = inferNarrativeBiome(environment, themeId);
+  pool = filterPoolByNarrativeBiome(pool, narrativeBiome, 8);
+  const continuityFallback = [String(opts.nextEncounterHint ?? ''), extraText].join(' ').trim();
+  const scoreThemeTags = thematicTags.length ? thematicTags : listBiomePreferredTagsForScoring(narrativeBiome);
+  const encounterScoreCtxBase = normalizeScoringContext({
+    biome: narrativeBiome,
+    themeTags: scoreThemeTags,
+    keywordFragments: kw,
+    factionTags: opts.factionTags,
+    continuityText: String(opts.continuityText ?? ''),
+    continuityFallback,
+    themeId,
+  });
+  warnScoringContractInvariants(encounterScoreCtxBase, 'buildEncounterFromDatabase');
+  const scoreCtx = { ...encounterScoreCtxBase, themeId, continuityFallback };
+  pool = sortPoolByNarrativeScore(pool, scoreCtx);
+
   /** @type {'nest'|'patrol'|'symbiosis'|'boss_minions'|'horde'} */
   let archetype = 'patrol';
   /** @type {BuiltEncounter['roster']} */
@@ -838,7 +980,6 @@ export function buildEncounterFromDatabase(db, opts) {
   }
 
   for (let attempt = 0; attempt < 4; attempt += 1) {
-    shuffleInPlace(pool, rng);
     archetype = rollEncounterArchetype(rng);
     // Horde sanity-check: нужно минимум 5 существ; если бюджет не позволяет — переключаем
     if (archetype === 'horde') {
@@ -878,19 +1019,23 @@ export function buildEncounterFromDatabase(db, opts) {
         scanPool = hp;
       }
     }
+    if (thematicTags.length > 0) {
+      const boosted = scanPool.filter((m) => monsterThemeTagScore(m, thematicTags) >= 1);
+      if (boosted.length >= 6) {
+        scanPool = boosted;
+      }
+    }
 
     anchor = undefined;
     let bestGap = Infinity;
     for (const row of scanPool) {
       const g = Math.abs(monsterCr(row) - anchorTargetCr);
-      if (g < bestGap || (anchor == null && g === bestGap)) {
-        anchor = row;
-        bestGap = g;
-        if (g < 0.25) break;
-      }
+      if (g < bestGap) bestGap = g;
     }
+    const near = scanPool.filter((row) => Math.abs(monsterCr(row) - anchorTargetCr) <= bestGap + 0.051);
+    anchor = pickBestMonsterByNarrativeScore(near.length ? near : scanPool, scoreCtx);
     if (!anchor && pool.length) {
-      anchor = pool[Math.floor(rng() * pool.length)];
+      anchor = pickBestMonsterByNarrativeScore(pool, scoreCtx);
     }
     const anchorType = anchor ? primaryCreatureType(anchor) : null;
     const leaderMode = Boolean(anchor && monsterCr(anchor) > 3);
@@ -989,7 +1134,7 @@ export function buildEncounterFromDatabase(db, opts) {
         }
       }
 
-      let choice = subset[Math.floor(rng() * subset.length)];
+      let choice = pickBestMonsterByNarrativeScore(subset, scoreCtx);
       if (!choice) break;
       const k = rowKey(choice);
 
@@ -1056,14 +1201,18 @@ export function buildEncounterFromDatabase(db, opts) {
           monsterCr(m) > monsterCr(cur) &&
           !rowContradictsBiome(environment, m),
       )
-      .sort((a, b) => monsterCr(b) - monsterCr(a));
-    if (better[0]) {
-      roster[0].row = better[0];
+      .sort((a, b) => monsterCr(b) - monsterCr(a))
+      .slice(0, 8);
+    const pickSolo = pickBestMonsterByNarrativeScore(better.length ? better : [cur], scoreCtx);
+    if (pickSolo && rowKey(pickSolo) !== rowKey(cur)) {
+      roster[0].row = pickSolo;
       roster[0].isLegendarySolo = true;
       isLegendarySolo = true;
-      actualXp = monsterXp(better[0]);
+      actualXp = monsterXp(pickSolo);
     }
   }
+
+  roster = assignNarrativeEnemyRoles(roster);
 
   applyInjuryVarianceToRoster(roster, rng);
   const leadIdx = pickLeaderIndexInRoster(roster);
@@ -1079,7 +1228,33 @@ export function buildEncounterFromDatabase(db, opts) {
   const encounterRole = inferEncounterEcologyRole(roster, partyLevel, rng);
   const scoutAlarmXpBonusNextRoom = encounterRole === 'scout' ? 0.15 : 0;
   const bf = rollBattlefieldHeightProfile(rng);
-  const haz = rollEnvironmentalHazard(floorDepth, rng);
+  const haz = pickCinematicHazardForBiome(
+    narrativeBiome,
+    floorDepth,
+    `${themeId}|${sceneType}|${environment}|${floorDepth}`,
+    themeId,
+  );
+  const hazardLabel = softenHazardForSceneType(sceneType, haz.label);
+  const validationDepth = Math.floor(Number(opts.__dmValidationDepth) || 0);
+  const val = validateEncounterPipeline({
+    roster,
+    narrativeBiome,
+    thematicTags,
+    scoreCtx,
+    sceneType,
+    hazardLabelRu: hazardLabel,
+  });
+  if (!val.ok && validationDepth < 2) {
+    const extra = listBiomePreferredTagsForScoring(narrativeBiome).slice(0, 5);
+    if (val.themeCoherenceWeak && thematicTags.length) {
+      extra.push(...thematicTags.slice(0, 4));
+    }
+    return buildEncounterFromDatabase(db, {
+      ...opts,
+      __dmValidationDepth: validationDepth + 1,
+      persistentMonsterTags: [...new Set([...persistentMonsterTags, ...extra])],
+    });
+  }
   const ecologyTactics = formatEncounterEcologyTacticsLocalized(encounterRole);
   const narrative = buildScenarioNarrativeBundle(db, {
     archetype,
@@ -1093,7 +1268,7 @@ export function buildEncounterFromDatabase(db, opts) {
     encounterRole,
     ecologyTactics,
     battlefieldHeightSummary: bf.summary,
-    environmentalHazardLine: haz.label,
+    environmentalHazardLine: hazardLabel,
   });
 
   return {
@@ -1115,7 +1290,7 @@ export function buildEncounterFromDatabase(db, opts) {
     encounterRoleLabelRu: formatEncounterEcologyRoleLabelRu(encounterRole),
     battlefieldHeightLevel: bf.heightLevel,
     battlefieldHeightSummary: bf.summary,
-    environmentalHazard: haz,
+    environmentalHazard: { ...haz, label: hazardLabel },
     scoutAlarmXpBonusNextRoom,
   };
 }

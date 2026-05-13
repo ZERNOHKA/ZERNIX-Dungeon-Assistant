@@ -9,6 +9,8 @@ import {
 } from './lootNaturalContext.mjs';
 import { SQL_ITEMS_LOCALIZED_FROM, SQL_ITEMS_LOCALIZED_SELECT } from './sql-items-localized.mjs';
 import { formatLocalizedWithOriginalSuffix } from './db-localization.mjs';
+import { effectiveItemPickWeight, pickRandomItemRowWeighted } from './loot-nexus-weights.mjs';
+import { normalizeScoringContext } from './dm-scoring-contract.mjs';
 
 /** @type {readonly string[]} */
 const RARITY_ORDER = Object.freeze([
@@ -467,40 +469,32 @@ export function approximateIndividualCoinsGp(db, sumCrNumeric, rng = Math.random
  * @param {string[]} categories
  * @param {() => number} rng
  * @param {number} caveGemBias
+ * @param {string|undefined} [contextTag] приоритет строкам `items.tags`
+ * @param {string[]|undefined} [themeTags] тематические теги сцены
  * @returns {Record<string, unknown>|undefined}
  */
-function pickCheapMundaneItem(db, categories, rng, caveGemBias = 0) {
+function pickCheapMundaneItem(db, categories, rng, caveGemBias = 0, contextTag, themeTags) {
   const baseExclusions = `ifnull(i.is_magic,0) = 0 AND i.category NOT IN ('Currency', 'Services')
     AND i.cost_gp IS NOT NULL AND i.cost_gp > 0 AND i.cost_gp <= 60 ${SQL_EXCLUDE_ADVENTURING_PACKS}`;
   /** @type {Record<string, unknown>|undefined} */
   let row;
   if (rng() < caveGemBias) {
-    row = /** @type {Record<string, unknown>|undefined} */ (
-      db
-        .prepare(
-          `SELECT ${SQL_ITEMS_LOCALIZED_SELECT} FROM ${SQL_ITEMS_LOCALIZED_FROM} WHERE ${baseExclusions} AND (
+    const sql = `SELECT ${SQL_ITEMS_LOCALIZED_SELECT} FROM ${SQL_ITEMS_LOCALIZED_FROM} WHERE ${baseExclusions} AND (
           lower(ifnull(i.category,'')) LIKE '%gem%' OR lower(ifnull(i.name,'')) LIKE '%ore%'
-        ) ORDER BY RANDOM() LIMIT 1`,
-        )
-        .get()
-    );
+        )`;
+    row = pickRandomItemRowWeighted(db, sql, [], contextTag, rng, 320, themeTags);
   }
   if (
     !row &&
     caveGemBias >= 0.5 &&
     rng() < Math.min(0.65, caveGemBias * 0.5)
   ) {
-    row = /** @type {Record<string, unknown>|undefined} */ (
-      db
-        .prepare(
-          `SELECT ${SQL_ITEMS_LOCALIZED_SELECT} FROM ${SQL_ITEMS_LOCALIZED_FROM} WHERE ${baseExclusions} AND (
+    const sql = `SELECT ${SQL_ITEMS_LOCALIZED_SELECT} FROM ${SQL_ITEMS_LOCALIZED_FROM} WHERE ${baseExclusions} AND (
           lower(ifnull(i.name,'')) LIKE '%hide%' OR lower(ifnull(i.name,'')) LIKE '%fur%'
           OR lower(ifnull(i.name,'')) LIKE '%leather%' OR lower(ifnull(i.name,'')) LIKE '%stone%'
           OR lower(ifnull(i.name,'')) LIKE '%claw%' OR lower(ifnull(i.name,'')) LIKE '%horn%'
-        ) ORDER BY RANDOM() LIMIT 1`,
-        )
-        .get()
-    );
+        )`;
+    row = pickRandomItemRowWeighted(db, sql, [], contextTag, rng, 320, themeTags);
   }
   if (
     !row &&
@@ -509,25 +503,14 @@ function pickCheapMundaneItem(db, categories, rng, caveGemBias = 0) {
     rng() > 0.22
   ) {
     const cat = categories[Math.floor(rng() * categories.length)];
-    row = /** @type {Record<string, unknown>|undefined} */ (
-      db
-        .prepare(
-          `SELECT ${SQL_ITEMS_LOCALIZED_SELECT} FROM ${SQL_ITEMS_LOCALIZED_FROM} WHERE ${baseExclusions} AND (
+    const sql = `SELECT ${SQL_ITEMS_LOCALIZED_SELECT} FROM ${SQL_ITEMS_LOCALIZED_FROM} WHERE ${baseExclusions} AND (
           instr(lower(i.category), lower(?)) > 0 OR instr(lower(ifnull(i.subcategory,'')), lower(?)) > 0
-        ) ORDER BY RANDOM() LIMIT 1`,
-        )
-        .get(cat, cat)
-    );
+        )`;
+    row = pickRandomItemRowWeighted(db, sql, [cat, cat], contextTag, rng, 320, themeTags);
   }
   if (!row) {
-    row = /** @type {Record<string, unknown>|undefined} */ (
-      db
-        .prepare(
-          `SELECT ${SQL_ITEMS_LOCALIZED_SELECT} FROM ${SQL_ITEMS_LOCALIZED_FROM} WHERE ${baseExclusions}
-        ORDER BY RANDOM() LIMIT 1`,
-        )
-        .get()
-    );
+    const sql = `SELECT ${SQL_ITEMS_LOCALIZED_SELECT} FROM ${SQL_ITEMS_LOCALIZED_FROM} WHERE ${baseExclusions}`;
+    row = pickRandomItemRowWeighted(db, sql, [], contextTag, rng, 400, themeTags);
   }
   return row;
 }
@@ -545,6 +528,7 @@ function pickCheapMundaneItem(db, categories, rng, caveGemBias = 0) {
  * @param {number} [opts.partyLevel]
  * @param {number} [opts.playerCount]
  * @param {() => number} [opts.rng]
+ * @param {string} [opts.contextTag] контекстный тег (urban, dungeon, wilderness) — усиливает `items.tags`
  */
 export function generateIndividualTreasureLoot(db, opts) {
   const rng = typeof opts.rng === 'function' ? opts.rng : Math.random;
@@ -556,6 +540,10 @@ export function generateIndividualTreasureLoot(db, opts) {
   const includeCoins = opts.includeCoins !== false;
   const partyLevel = opts.partyLevel != null ? Number(opts.partyLevel) : null;
   const playerCount = opts.playerCount != null ? Number(opts.playerCount) : null;
+  const contextTag =
+    opts.contextTag != null && String(opts.contextTag).trim()
+      ? String(opts.contextTag).trim().toLowerCase()
+      : undefined;
 
   let coinsApproxGp = null;
   if (includeCoins) {
@@ -565,7 +553,7 @@ export function generateIndividualTreasureLoot(db, opts) {
   /** @type {Array<Record<string, unknown>>} */
   const mundaneItems = [];
   if (rollD100(rng) <= 50) {
-    const row = pickCheapMundaneItem(db, categories, rng, caveGemBias);
+    const row = pickCheapMundaneItem(db, categories, rng, caveGemBias, contextTag);
     const keepLowValueJunk = sumCr < 5;
     if (row && (keepLowValueJunk || !isLowValueMundaneJunk(row))) {
       mundaneItems.push(row);
@@ -581,7 +569,16 @@ export function generateIndividualTreasureLoot(db, opts) {
       buckets = buckets.filter((b) => b !== 'Common');
     }
     if (buckets.length > 0) {
-      const m = generateLootByCR(db, Math.min(30, sumCr), 1, rng, excludeCommonMagic, buckets);
+      const m = generateLootByCR(
+        db,
+        Math.min(30, sumCr),
+        1,
+        rng,
+        excludeCommonMagic,
+        buckets,
+        contextTag,
+        undefined,
+      );
       if (m[0]) {
         magicItems.push(m[0]);
       }
@@ -655,6 +652,7 @@ function plausibilityScoreForBudgetItem(row, goldLimitGp, encounterWeights, rng)
  * @param {() => number} [rng]
  * @param {number|null} [crHint]
  * @param {boolean} [excludeCommonMagic]
+ * @param {string|undefined} [contextTag]
  * @returns {Array<Record<string, unknown>>}
  */
 export function generateLootByBudget(
@@ -665,6 +663,7 @@ export function generateLootByBudget(
   rng = Math.random,
   crHint = null,
   excludeCommonMagic = false,
+  contextTag,
 ) {
   const cap = Number(goldLimitGp);
   if (!Number.isFinite(cap) || cap <= 0) {
@@ -714,8 +713,8 @@ export function generateLootByBudget(
   }
   const sorted = [...pool].sort(
     (a, b) =>
-      plausibilityScoreForBudgetItem(b, cap, weights, rng) -
-      plausibilityScoreForBudgetItem(a, cap, weights, rng),
+      plausibilityScoreForBudgetItem(b, cap, weights, rng) * (effectiveItemPickWeight(b, contextTag) / 100) -
+      plausibilityScoreForBudgetItem(a, cap, weights, rng) * (effectiveItemPickWeight(a, contextTag) / 100),
   );
   /** @type {Array<Record<string, unknown>>} */
   const out = [];
@@ -737,6 +736,9 @@ export function generateLootByBudget(
  * @param {string[]} [categories]
  * @param {() => number} [rng]
  * @param {boolean} [excludeCommonMagic]
+ * @param {string[]|null} [allowedRarityBuckets]
+ * @param {string|undefined} [contextTag]
+ * @param {string[]|undefined} [themeTags]
  * @returns {Record<string, unknown>|undefined}
  */
 export function pickOneMagicItemForBudgetAndCr(
@@ -747,6 +749,8 @@ export function pickOneMagicItemForBudgetAndCr(
   rng = Math.random,
   excludeCommonMagic = false,
   allowedRarityBuckets = null,
+  contextTag,
+  themeTags,
 ) {
   const cap = Number(goldLimitGp);
   if (!Number.isFinite(cap) || cap <= 0) {
@@ -795,7 +799,8 @@ export function pickOneMagicItemForBudgetAndCr(
     pool,
     (row) => {
       const b = rarityBucket(/** @type {string|null} */ (row.rarity));
-      return b != null && weights[b] != null ? Number(weights[b]) : 0;
+      const rw = b != null && weights[b] != null ? Number(weights[b]) : 0;
+      return rw * (effectiveItemPickWeight(row, contextTag, 2.4, themeTags) / 100);
     },
     rng,
   );
@@ -808,7 +813,10 @@ export function pickOneMagicItemForBudgetAndCr(
  * @param {number} rollCount
  * @param {number} effectiveCr
  * @param {string[]} [categories]
- * @param {() => number} [rng]
+ * @param {boolean} [excludeCommonMagic]
+ * @param {string[]|null} [allowedRarityBuckets]
+ * @param {string|undefined} [contextTag]
+ * @param {string[]|undefined} [themeTags]
  * @returns {Array<Record<string, unknown>>}
  */
 export function fillMagicItemsTreasureHoard(
@@ -820,6 +828,8 @@ export function fillMagicItemsTreasureHoard(
   rng = Math.random,
   excludeCommonMagic = false,
   allowedRarityBuckets = null,
+  contextTag,
+  themeTags,
 ) {
   const budget = Number(totalBudgetGp);
   const rolls = Math.min(2, Math.max(0, Math.floor(Number(rollCount))));
@@ -827,7 +837,7 @@ export function fillMagicItemsTreasureHoard(
     return [];
   }
   if (!Number.isFinite(budget) || budget <= 0) {
-    return generateLootByCR(db, effectiveCr, rolls, rng, excludeCommonMagic, allowedRarityBuckets);
+    return generateLootByCR(db, effectiveCr, rolls, rng, excludeCommonMagic, allowedRarityBuckets, contextTag, themeTags);
   }
   /** @type {Array<Record<string, unknown>>} */
   const items = [];
@@ -843,12 +853,14 @@ export function fillMagicItemsTreasureHoard(
       rng,
       excludeCommonMagic,
       allowedRarityBuckets,
+      contextTag,
+      themeTags,
     );
     if (pick) {
       items.push(pick);
       remaining -= Number(pick.cost_gp) || 0;
     } else {
-      const fb = generateLootByCR(db, effectiveCr, 1, rng, excludeCommonMagic, allowedRarityBuckets);
+      const fb = generateLootByCR(db, effectiveCr, 1, rng, excludeCommonMagic, allowedRarityBuckets, contextTag, themeTags);
       if (fb[0]) {
         items.push(fb[0]);
       }
@@ -874,6 +886,7 @@ export function fillMagicItemsTreasureHoard(
  * @param {number} [opts.partyLevel] для мягкого капа богатства группы (DMG 2024)
  * @param {number} [opts.playerCount]
  * @param {() => number} [opts.rng]
+ * @param {string} [opts.contextTag] — приоритет `items.tags` при выборе
  * @returns {{
  *   rollPlan: ReturnType<typeof treasureHoardRollPlanFromGroupCr>,
  *   magicItems: Array<Record<string, unknown>>,
@@ -895,6 +908,14 @@ export function generateTreasureHoardLoot(db, opts) {
   const caveGemBias = typeof opts.caveGemBias === 'number' ? opts.caveGemBias : 0;
   const partyLevel = opts.partyLevel != null ? Number(opts.partyLevel) : null;
   const playerCount = opts.playerCount != null ? Number(opts.playerCount) : null;
+  const contextTag =
+    opts.contextTag != null && String(opts.contextTag).trim()
+      ? String(opts.contextTag).trim().toLowerCase()
+      : undefined;
+  const themeTags =
+    Array.isArray(opts.themeTags) && opts.themeTags.length
+      ? opts.themeTags.map((x) => String(x).trim().toLowerCase()).filter(Boolean)
+      : undefined;
   let magicRarityBuckets = plan.magicRarityBuckets;
   if (excludeCommonMagic && magicRarityBuckets != null && magicRarityBuckets.length > 0) {
     magicRarityBuckets = magicRarityBuckets.filter((b) => b !== 'Common');
@@ -915,6 +936,8 @@ export function generateTreasureHoardLoot(db, opts) {
       rng,
       excludeCommonMagic,
       magicRarityBuckets,
+      contextTag,
+      themeTags,
     );
   } else {
     magicItems = generateLootByCR(
@@ -924,6 +947,8 @@ export function generateTreasureHoardLoot(db, opts) {
       rng,
       excludeCommonMagic,
       magicRarityBuckets,
+      contextTag,
+      themeTags,
     );
   }
 
@@ -934,6 +959,8 @@ export function generateTreasureHoardLoot(db, opts) {
       caveGemBias,
       qualityTargetCr: sumCr,
       treasureChestMode: treasureChest,
+      contextTag,
+      themeTags,
     });
   }
 
@@ -999,6 +1026,19 @@ export function pickMundaneHoardItems(db, count, categories, rng, hoardOpts = {}
   const treasureChestMode =
     hoardOpts &&
     Boolean(/** @type {{ treasureChestMode?: boolean }} */ (hoardOpts).treasureChestMode);
+  const contextTag =
+    hoardOpts &&
+    /** @type {{ contextTag?: string }} */ (hoardOpts).contextTag != null &&
+    String(/** @type {{ contextTag?: string }} */ (hoardOpts).contextTag).trim()
+      ? String(/** @type {{ contextTag: string }} */ (hoardOpts).contextTag).trim().toLowerCase()
+      : undefined;
+  const themeTags =
+    hoardOpts &&
+    Array.isArray(/** @type {{ themeTags?: string[] }} */ (hoardOpts).themeTags)
+      ? /** @type {{ themeTags: string[] }} */ (hoardOpts).themeTags
+          .map((x) => String(x).trim().toLowerCase())
+          .filter(Boolean)
+      : undefined;
 
   if (n === 0) {
     return [];
@@ -1010,14 +1050,11 @@ export function pickMundaneHoardItems(db, count, categories, rng, hoardOpts = {}
     let row;
 
     if (rng() < caveGemBias) {
-      row = db
-        .prepare(
-          `SELECT ${SQL_ITEMS_LOCALIZED_SELECT} FROM ${SQL_ITEMS_LOCALIZED_FROM} WHERE ${baseExclusions} AND (
+      const sql = `SELECT ${SQL_ITEMS_LOCALIZED_SELECT} FROM ${SQL_ITEMS_LOCALIZED_FROM} WHERE ${baseExclusions} AND (
             lower(ifnull(i.category,'')) LIKE '%gem%' OR lower(ifnull(i.name,'')) LIKE '%ore%'
             OR lower(ifnull(i.name,'')) LIKE '%ruby%' OR lower(ifnull(i.name,'')) LIKE '%quartz%'
-          ) ORDER BY RANDOM() LIMIT 1`,
-        )
-        .get();
+          )`;
+      row = pickRandomItemRowWeighted(db, sql, [], contextTag, rng, 380, themeTags);
     }
 
     if (
@@ -1025,17 +1062,14 @@ export function pickMundaneHoardItems(db, count, categories, rng, hoardOpts = {}
       caveGemBias >= 0.42 &&
       rng() < Math.min(0.72, caveGemBias * 0.65)
     ) {
-      row = db
-        .prepare(
-          `SELECT ${SQL_ITEMS_LOCALIZED_SELECT} FROM ${SQL_ITEMS_LOCALIZED_FROM} WHERE ${baseExclusions} AND (
+      const sql = `SELECT ${SQL_ITEMS_LOCALIZED_SELECT} FROM ${SQL_ITEMS_LOCALIZED_FROM} WHERE ${baseExclusions} AND (
             lower(ifnull(i.name,'')) LIKE '%hide%' OR lower(ifnull(i.name,'')) LIKE '%fur%'
             OR lower(ifnull(i.name,'')) LIKE '%leather%' OR lower(ifnull(i.name,'')) LIKE '%stone%'
             OR lower(ifnull(i.name,'')) LIKE '%claw%' OR lower(ifnull(i.name,'')) LIKE '%horn%'
             OR lower(ifnull(i.name,'')) LIKE '%ivory%' OR lower(ifnull(i.name,'')) LIKE '%scale%'
             OR lower(ifnull(i.name,'')) LIKE '%bone%' OR lower(ifnull(i.name,'')) LIKE '%boulder%'
-          ) ORDER BY RANDOM() LIMIT 1`,
-        )
-        .get();
+          )`;
+      row = pickRandomItemRowWeighted(db, sql, [], contextTag, rng, 380, themeTags);
     }
 
     if (
@@ -1045,35 +1079,24 @@ export function pickMundaneHoardItems(db, count, categories, rng, hoardOpts = {}
       rng() > caveGemBias * 0.35
     ) {
       const cat = categories[Math.floor(rng() * categories.length)];
-      row = db
-        .prepare(
-          `SELECT ${SQL_ITEMS_LOCALIZED_SELECT} FROM ${SQL_ITEMS_LOCALIZED_FROM} WHERE ${baseExclusions} AND (
+      const sql = `SELECT ${SQL_ITEMS_LOCALIZED_SELECT} FROM ${SQL_ITEMS_LOCALIZED_FROM} WHERE ${baseExclusions} AND (
           instr(lower(i.category), lower(?)) > 0 OR instr(lower(ifnull(i.subcategory,'')), lower(?)) > 0
-        ) ORDER BY RANDOM() LIMIT 1`,
-        )
-        .get(cat, cat);
+        )`;
+      row = pickRandomItemRowWeighted(db, sql, [cat, cat], contextTag, rng, 380, themeTags);
     }
     if (!row && treasureChestMode) {
-      row = db
-        .prepare(
-          `SELECT ${SQL_ITEMS_LOCALIZED_SELECT} FROM ${SQL_ITEMS_LOCALIZED_FROM} WHERE ${baseExclusions}
+      const sql = `SELECT ${SQL_ITEMS_LOCALIZED_SELECT} FROM ${SQL_ITEMS_LOCALIZED_FROM} WHERE ${baseExclusions}
            AND (lower(ifnull(i.category,'')) LIKE '%gem%'
              OR lower(ifnull(i.name,'')) LIKE '%jewel%'
              OR lower(ifnull(i.name,'')) LIKE '%ruby%'
              OR lower(ifnull(i.name,'')) LIKE '%pearl%'
-             OR lower(ifnull(i.name,'')) LIKE '%gold%')
-           ORDER BY RANDOM() LIMIT 1`,
-        )
-        .get();
+             OR lower(ifnull(i.name,'')) LIKE '%gold%')`;
+      row = pickRandomItemRowWeighted(db, sql, [], contextTag, rng, 360, themeTags);
     }
     if (!row) {
-      row = db
-        .prepare(
-          `SELECT ${SQL_ITEMS_LOCALIZED_SELECT} FROM ${SQL_ITEMS_LOCALIZED_FROM} WHERE ${baseExclusions}
-         AND i.category NOT IN ('Vehicle', 'Mount')
-         ORDER BY RANDOM() LIMIT 1`,
-        )
-        .get();
+      const sql = `SELECT ${SQL_ITEMS_LOCALIZED_SELECT} FROM ${SQL_ITEMS_LOCALIZED_FROM} WHERE ${baseExclusions}
+         AND i.category NOT IN ('Vehicle', 'Mount')`;
+      row = pickRandomItemRowWeighted(db, sql, [], contextTag, rng, 450, themeTags);
     }
     if (row) {
       const typed = /** @type {Record<string, unknown>} */ (row);
@@ -1098,6 +1121,9 @@ export function pickMundaneHoardItems(db, count, categories, rng, hoardOpts = {}
  * @param {number} [count]
  * @param {() => number} [rng]
  * @param {boolean} [excludeCommonMagic]
+ * @param {string[]|null} [allowedRarityBuckets]
+ * @param {string|undefined} [contextTag]
+ * @param {string[]|undefined} [themeTags]
  * @returns {Array<Record<string, unknown>>}
  */
 export function generateLootByCR(
@@ -1107,6 +1133,8 @@ export function generateLootByCR(
   rng = Math.random,
   excludeCommonMagic = false,
   allowedRarityBuckets = null,
+  contextTag,
+  themeTags,
 ) {
   const cfg = encounterWeightsForCr(db, crValue);
   if (!cfg?.weights) {
@@ -1151,7 +1179,7 @@ export function generateLootByCR(
       crValue,
       buckets: allowedRarityBuckets,
     });
-    return generateLootByCR(db, crValue, count, rng, excludeCommonMagic, null);
+    return generateLootByCR(db, crValue, count, rng, excludeCommonMagic, null, contextTag, themeTags);
   }
   if (candidates.length === 0) {
     dbgLootSql('generateLootByCR(empty)', 'no candidates after rarity/CR filters', {
@@ -1172,7 +1200,8 @@ export function generateLootByCR(
       candidates,
       (row) => {
         const b = rarityBucket(/** @type {string|null} */ (row.rarity));
-        return b != null && weights[b] != null ? Number(weights[b]) : 0;
+        const rw = b != null && weights[b] != null ? Number(weights[b]) : 0;
+        return rw * (effectiveItemPickWeight(row, contextTag, 2.4, themeTags) / 100);
       },
       rng,
     );
@@ -1238,6 +1267,7 @@ export function generateLootHybrid(
   categories = [],
   rng = Math.random,
   excludeCommonMagic = false,
+  contextTag,
 ) {
   const cfg = encounterWeightsForCr(db, crValue);
   const tier = cfg?.tier ?? tierFromCr(crValue);
@@ -1271,12 +1301,49 @@ export function generateLootHybrid(
     rng,
     crValue,
     excludeCommonMagic,
+    contextTag,
   );
   return { picks, tier, bias_rarities: allow };
 }
 
 /**
+ * Токены из continuity для пересечения с `items.tags` (тот же механизм веса, что у themeTags).
+ *
+ * @param {string} text
+ */
+function continuityTokensForItemWeight(text) {
+  return String(text || '')
+    .toLowerCase()
+    .split(/[^a-zа-яё0-9]+/i)
+    .map((s) => s.trim())
+    .filter((s) => s.length >= 4 && s.length <= 24)
+    .slice(0, 10);
+}
+
+/**
+ * Единый набор тегов для взвешивания предметов в hybrid-dice (тема + фракция + continuity), через scoring contract.
+ *
+ * @param {string[]|undefined|null} themeTags
+ * @param {string[]|undefined|null} factionTags
+ * @param {string|undefined|null} continuityText
+ * @param {import('./location-context.mjs').NarrativeBiomeId|string} narrativeBiome
+ */
+export function buildHybridDiceLootWeightTags(themeTags, factionTags, continuityText, narrativeBiome) {
+  const ctx = normalizeScoringContext({
+    biome: narrativeBiome,
+    themeTags: Array.isArray(themeTags) ? themeTags : [],
+    factionTags,
+    continuityText,
+    continuityFallback: continuityText ? '' : 'hybrid-dice',
+    themeId: '',
+  });
+  const extra = continuityTokensForItemWeight(ctx.continuityText);
+  return [...new Set([...ctx.themeTags, ...ctx.factionTags, ...extra])].slice(0, 28);
+}
+
+/**
  * Дополнительные находки без «добора» до лимита gp: только случайные броски (как кости на столе).
+ * Теги темы/фракции/continuity — тот же контракт, что у encounter scoring (через `normalizeScoringContext`).
  *
  * @param {import('better-sqlite3').Database} db
  * @param {number} crValue
@@ -1284,6 +1351,12 @@ export function generateLootHybrid(
  * @param {() => number} [rng]
  * @param {boolean} [excludeCommonMagic]
  * @param {number} [caveGemBias]
+ * @param {boolean} [skipMundane]
+ * @param {string|undefined} [contextTag]
+ * @param {string[]|undefined|null} [themeTags]
+ * @param {string[]|undefined|null} [factionTags]
+ * @param {string|undefined|null} [continuityText]
+ * @param {import('./location-context.mjs').NarrativeBiomeId|string} [narrativeBiome]
  * @returns {{ magicItems: Array<Record<string, unknown>>, mundaneItems: Array<Record<string, unknown>> }}
  */
 export function generateLootHybridDiceOnly(
@@ -1294,7 +1367,14 @@ export function generateLootHybridDiceOnly(
   excludeCommonMagic = false,
   caveGemBias = 0,
   skipMundane = false,
+  contextTag,
+  themeTags,
+  factionTags,
+  continuityText,
+  narrativeBiome,
 ) {
+  const weightTags = buildHybridDiceLootWeightTags(themeTags, factionTags, continuityText, narrativeBiome);
+
   /** @type {Array<Record<string, unknown>>} */
   const magicItems = [];
   /** @type {Array<Record<string, unknown>>} */
@@ -1309,7 +1389,7 @@ export function generateLootHybridDiceOnly(
         buckets = buckets.filter((b) => b !== 'Common');
       }
       if (buckets.length > 0) {
-        const batch = generateLootByCR(db, crValue, 1, rng, excludeCommonMagic, buckets);
+        const batch = generateLootByCR(db, crValue, 1, rng, excludeCommonMagic, buckets, contextTag, weightTags);
         if (batch[0]) {
           magicItems.push(batch[0]);
         }
@@ -1323,7 +1403,12 @@ export function generateLootHybridDiceOnly(
     const nMund = mundRoll <= 28 ? 0 : mundRoll <= 72 ? 1 : 2;
     if (nMund > 0) {
       mundaneItems.push(
-        ...pickMundaneHoardItems(db, nMund, categories, rng, { caveGemBias, qualityTargetCr: crValue }),
+        ...pickMundaneHoardItems(db, nMund, categories, rng, {
+          caveGemBias,
+          qualityTargetCr: crValue,
+          contextTag,
+          themeTags: weightTags,
+        }),
       );
     }
   }
@@ -1691,6 +1776,7 @@ function buildAppearanceProfile(role, fromDb, rng) {
  * @param {import('better-sqlite3').Database} db
  * @param {Record<string, unknown>} monsterRow
  * @param {() => number} [rng]
+ * @param {{ contextTag?: string }} [options]
  * @returns {{
  *   gear: Array<Record<string, unknown>>,
  *   appearance: {
@@ -1703,11 +1789,15 @@ function buildAppearanceProfile(role, fromDb, rng) {
  *   }|null,
  * }}
  */
-export function generateHumanoidNpcLoot(db, monsterRow, rng = Math.random) {
+export function generateHumanoidNpcLoot(db, monsterRow, rng = Math.random, options = {}) {
   const role = inferNpcEquipmentRole(monsterRow);
   if (role == null) {
     return { gear: [], appearance: null };
   }
+  const contextTag =
+    options.contextTag != null && String(options.contextTag).trim()
+      ? String(options.contextTag).trim().toLowerCase()
+      : undefined;
   const cr = Number(monsterRow.cr_numeric);
   const crVal = Number.isFinite(cr) ? cr : 0;
   const spec = npcRoleToLoadoutSpec(role);
@@ -1716,11 +1806,9 @@ export function generateHumanoidNpcLoot(db, monsterRow, rng = Math.random) {
 
   /** @type {Array<Record<string, unknown>>} */
   const out = [];
-  const mundaneStmt = db.prepare(
-    `SELECT ${SQL_ITEMS_LOCALIZED_SELECT} FROM ${SQL_ITEMS_LOCALIZED_FROM} WHERE i.is_magic = 0 AND i.category = ? ORDER BY RANDOM() LIMIT 1`,
-  );
   for (const specItem of spec.mundanePickSpecs) {
-    const row = mundaneStmt.get(specItem.category);
+    const sql = `SELECT ${SQL_ITEMS_LOCALIZED_SELECT} FROM ${SQL_ITEMS_LOCALIZED_FROM} WHERE i.is_magic = 0 AND i.category = ?`;
+    const row = pickRandomItemRowWeighted(db, sql, [specItem.category], contextTag, rng, 320);
     if (row) {
       out.push(/** @type {Record<string, unknown>} */ (row));
     }
@@ -1729,14 +1817,10 @@ export function generateHumanoidNpcLoot(db, monsterRow, rng = Math.random) {
   const roll = rng();
   if (spec.magicCategories.length > 0 && roll < spec.magicChance * (1 + Math.min(1.5, crVal / 12))) {
     const cat = spec.magicCategories[Math.floor(rng() * spec.magicCategories.length)];
-    const magicRow = db
-      .prepare(
-        `SELECT ${SQL_ITEMS_LOCALIZED_SELECT} FROM ${SQL_ITEMS_LOCALIZED_FROM}
+    const sql = `SELECT ${SQL_ITEMS_LOCALIZED_SELECT} FROM ${SQL_ITEMS_LOCALIZED_FROM}
          WHERE i.is_magic = 1 AND i.category = ?
-           AND (i.cost_gp IS NULL OR i.cost_gp <= ?)
-         ORDER BY RANDOM() LIMIT 1`,
-      )
-      .get(cat, maxMagicGp);
+           AND (i.cost_gp IS NULL OR i.cost_gp <= ?)`;
+    const magicRow = pickRandomItemRowWeighted(db, sql, [cat, maxMagicGp], contextTag, rng, 280);
     if (magicRow) {
       out.push(/** @type {Record<string, unknown>} */ (magicRow));
     }
