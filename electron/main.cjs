@@ -16,7 +16,7 @@ const CLIENT_REMOTE_REQUIRED_MSG = "Подключитесь к серверу �
 const CLIENT_API_KEY_REQUIRED_MSG =
   "Укажите адрес удалённого хоста и API-ключ в настройках сети — для этой сборки они обязательны.";
 
-/** Маркер из extraMetadata (electron-builder.client.yml) → merged package.json в asar. */
+/** Маркер extraMetadata (`zernixClientOnly`) в merged package.json — клиент-only без локальных движков. */
 function isZernixClientOnlyBuild() {
   try {
     const pkgPath = path.join(__dirname, "..", "package.json");

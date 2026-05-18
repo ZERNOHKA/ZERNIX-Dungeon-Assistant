@@ -14,3 +14,6 @@ zernix-dnd/
 # Client installer / electron-builder churn (not source)
 dist_electron_client/
 *.blockmap
+
+# Offline loot toolkit (SQLite/build); браузерный MVP использует src/database.mjs
+tools/

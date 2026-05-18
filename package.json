@@ -12,18 +12,12 @@
     "preview": "vite preview",
     "postinstall": "node scripts/install-better-sqlite3-prebuild.cjs",
     "rebuild:sqlite": "node scripts/install-better-sqlite3-prebuild.cjs",
-    "smoke": "npm run smoke:dnd-loot",
-    "smoke:dnd-loot": "npm run smoke --prefix tools/dnd-loot-sqlite",
-    "seed:monster-tags": "node tools/dnd-loot-sqlite/seed-monster-tags.mjs",
     "npc:test": "node npc-engine.mjs",
     "electron": "npm run build && electron .",
     "dist": "npm run build && node scripts/clean-electron-main-out.cjs && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win portable",
     "dist:protected": "npm run build && node scripts/obfuscate-for-pack.mjs && node scripts/clean-electron-main-out.cjs && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win portable && node scripts/write-dist-integrity.mjs",
     "dist:win-setup": "npm run build && node scripts/clean-electron-main-out.cjs && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win nsis",
-    "dist:win-unpacked": "npm run build && node scripts/clean-electron-main-out.cjs && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win dir",
-    "prebuild:client": "node scripts/clean-electron-client-out.cjs",
-    "build:client": "electron-builder --config electron-builder.client.yml",
-    "dist:client": "npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false npm run build:client"
+    "dist:win-unpacked": "npm run build && node scripts/clean-electron-main-out.cjs && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win dir"
   },
   "dependencies": {
     "better-sqlite3": "^11.7.0",
@@ -61,17 +55,10 @@
       "electron/**/*",
       "npc-engine.mjs",
       "npc-data-expansion.mjs",
-      "tools/dnd-loot-sqlite/**/*.mjs",
       "package.json"
     ],
     "asarUnpack": [
       "**/node_modules/better-sqlite3/**"
-    ],
-    "extraResources": [
-      {
-        "from": "tools/dnd-loot-sqlite/dnd-loot.sqlite",
-        "to": "dnd-loot.sqlite"
-      }
     ],
     "portable": {
       "artifactName": "ZernixDungeonAssistant-${version}-portable.${ext}"

@@ -1,7 +1,7 @@
 /**
  * Память подземелья (ZERNIX NEXUS) — состояние цепочки комнат.
- * Логика извлечения тегов из «следа» должна совпадать с `extractTagsFromTrace` в
- * `tools/dnd-loot-sqlite/lib/loot-generator-55.mjs` (при изменении — синхронизировать).
+ * Логика извлечения тегов из «следа» дублирует правила старого loot-generator-55
+ * (если меняете эвристики — сверяйте с серверной версией вне репозитория).
  */
 
 export interface DungeonRunState {
@@ -16,7 +16,7 @@ export interface DungeonRunState {
   transitionMarkdown: string | null;
 }
 
-/** Дублирует правила `extractTagsFromTrace` (loot-generator-55.mjs). */
+/** Дублирует правила `extractTagsFromTrace` (как в legacy loot-generator-55). */
 export function extractTagsFromTraceClient(traceText: string | null | undefined): string[] {
   const t = String(traceText ?? "").toLowerCase();
   const tags = new Set<string>();

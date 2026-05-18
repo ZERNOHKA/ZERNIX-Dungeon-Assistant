@@ -4,9 +4,11 @@
 
 ## Что вообще умеет
 
-- **Лут** — из SQLite через Electron (в браузере без движка лут как в демо или упрощённо, зависит от сборки).
-- **NPC** — нормальный текст только когда дергается `npc-engine.mjs` из Electron; чистый браузер берёт запасной генератор в `npcSummon.ts`.
-- Плюс экраны под сессию, состояния и т.д., всё крутится на одном JSON контента `public/data/app-content.json`.
+- **Лут в браузере** — асинхронный мок в `src/database.mjs` (без SQLite), подключён к UI через `lootBridge.ts`.
+- **NPC в браузере** — контентные шаблоны из `public/data/app-content.json` + та же задержка в `database.mjs`; полный текст «как в десктопе» возможен только при запуске через Electron (`npc-engine.mjs`).
+- Плюс экраны под сессию, состояния и т.д., всё крутится на одном JSON контента.
+
+**Про генераторы:** `database.mjs` не заменяет `npc-engine.mjs`: в моке только набор карточек лута и задержки; `npc-engine.mjs` + `npc-data-expansion.mjs` — отдельное Node-ядро для NPC под Electron и не конфликтуют с моком.
 
 ## Запуск для разработки
 
@@ -31,7 +33,7 @@ npm run build
 
 В `vite.config.ts` стоит `base: './'` — чтобы открывалось из подпапки на GH Pages без боли.
 
-## Electron (полный функционал)
+## Electron (опционально, полный десктоп)
 
 Нужен уже собранный фронт:
 
@@ -40,18 +42,9 @@ npm run build
 npm run electron
 ```
 
-Лут и NPC идут через IPC в main-процесс (`electron/main.cjs`, `loot-core.mjs`, `npc-engine.mjs`).
+Лут и NPC идут через IPC в main-процесс (`electron/main.cjs`, `loot-core.mjs`, `npc-engine.mjs`). В этом репозитории упор на веб-MVP без артефактов `dist_electron_client` и без вендорного набора SQL-инструментов ветки `tools/`.
 
-Клиент без базы и без `.mjs` движков — отдельная сборка (NSIS, `ZernixNexus-Client-Setup.exe`):
-
-```bash
-npm run dist:client
-# или: npm run build && npm run build:client
-```
-
-Если сборка падает с **«cannot access … app.asar»**: закройте запущенный exe из `dist_electron_client\win-unpacked`, окно проводника в этой папке и снова `npm run build:client` (перед сборкой автоматически удаляется `win-unpacked` через `prebuild:client`).
-
-Полная упаковка:
+Полная упаковка десктопа (Windows portable и т.д.):
 
 ```bash
 npm run dist
@@ -61,10 +54,7 @@ npm run dist
 
 | команда | что делает |
 |---------|------------|
-| `npm run dist:client` | Vite + клиентский NSIS (`electron-builder.client.yml`) |
-| `npm run build:client` | только `electron-builder` по `electron-builder.client.yml` (нужен уже собранный `dist/`) |
 | `npm run npc:test` | один NPC в консоль через npc-engine |
-| `npm run smoke:dnd-loot` | проверка генератора лута из tools |
 
 ## Про лицензии D&D
 
