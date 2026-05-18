@@ -1,3 +1,4 @@
+import { generateLootAsync } from "../../database.mjs";
 import { dbCategoriesForLootTypes } from "../../lib/lootDbCategories";
 import type { LootDigestPayload } from "../../types/lootDigest";
 import type { GenerateLootPayload, GenerateLootResult } from "../../vite-env";
@@ -60,19 +61,62 @@ export type LootBridgeResult =
     }
   | { ok: false; error: string; cards: LootCardModel[] };
 
-/** Вызывает IPC generateLoot и возвращает структурированные карточки (без изменения loot-core). */
+function newLootCardId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  return `loot-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+/** Браузер / Vite: мок из `database.mjs` (те же карточки + digest, что и у IPC-пайплайна). */
+async function runMockLootGeneration(form: LootFormBridge): Promise<LootBridgeResult> {
+  const item = await generateLootAsync();
+
+  const goldLine = `Браузерный режим: случайная строка из mock-таблицы LOOT_DATASET — ${form.environmentUi}, ур. ${form.partyLevel}, ${form.playerCount} игр., золото формы ${Math.max(1, Math.floor(form.goldGp))} зм.`;
+
+  const digest: LootDigestPayload = {
+    needsRepair: false,
+    labGold: "",
+    labItems: "",
+    labMagic: "",
+    goldLine,
+    mundane: [],
+    magic: [
+      {
+        displayLine: item.name,
+        statusLine: item.description,
+        needsRepair: false,
+      },
+    ],
+  };
+
+  const cards = cardsFromLootDigest(digest).map((c) => ({
+    ...c,
+    id: newLootCardId(),
+  }));
+
+  const markdown = `## ${item.name}\n\n${item.description}\n\n*${goldLine}*\n`;
+
+  return {
+    ok: true,
+    cards,
+    markdown,
+    digest,
+    narrativeBlock: null,
+    needsRepair: false,
+  };
+}
+
+/** IPC generateLoot в Electron или mock из `database.mjs` в браузере — одна точка входа для UI. */
 export async function runLootGeneration(form: LootFormBridge): Promise<LootBridgeResult> {
-  if (typeof window === "undefined" || !window.electronAPI?.generateLoot) {
-    return {
-      ok: false,
-      error: "Генератор лута доступен в сборке Electron с локальными движками.",
-      cards: [],
-    };
+  const ipc = typeof window !== "undefined" ? window.electronAPI : undefined;
+
+  if (typeof ipc?.generateLoot !== "function") {
+    return await runMockLootGeneration(form);
   }
+
   const payload = buildLootPayload(form);
   let res: GenerateLootResult;
   try {
-    res = await window.electronAPI.generateLoot(payload);
+    res = await ipc.generateLoot(payload);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return { ok: false, error: msg, cards: [] };

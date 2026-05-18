@@ -1,10 +1,12 @@
 import "./ZernixTheme.css";
 
-import { useState } from "react";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+
+import { ZernixProfileModal, ZernixQuickSettingsModal } from "./components/ZernixDeskModals";
 import {
   BookOpen,
   Coins,
+  Dices,
   Heart,
   History as HistoryIcon,
   Home,
@@ -14,8 +16,11 @@ import {
   UserCircle,
 } from "lucide-react";
 
+import { useZernixUserData } from "./context/ZernixUserDataContext";
 import type { ZernixViewId } from "./zernix/types";
 import { ZernixPreview } from "./zernix/ZernixPreview";
+import { TableModeView } from "./zernix/TableModeView";
+import { useZernixGenerators } from "./zernix/ZernixGeneratorsContext";
 import {
   ConditionsEncyclopediaView,
   FavoritesView,
@@ -33,6 +38,7 @@ const NAV_CREATION: ReadonlyArray<{
   hint: string;
   Icon: typeof Package;
 }> = [
+  { id: "table", title: "За столом", hint: "Большие кнопки, один клик", Icon: Dices },
   { id: "loot", title: "Loot Generator", hint: "Сокровища и таблицы", Icon: Package },
   { id: "npc", title: "Create NPC", hint: "Персонаж за минуту", Icon: UserCircle },
   { id: "prep", title: "Session Preparation", hint: "Заметки и таймлайн", Icon: ScrollText },
@@ -56,6 +62,10 @@ const HEAD_COPY: Record<
   home: {
     title: "ZERNIX Dungeon Assistant",
     subtitle: "ТВОЙ МАСТЕР. ТВОЙ МИР. ТВОИ ЛЕГЕНДЫ.",
+  },
+  table: {
+    title: "За столом",
+    subtitle: "Минимум интерфейса — максимум скорости",
   },
   loot: {
     title: "Генератор добычи",
@@ -90,13 +100,51 @@ const HEAD_COPY: Record<
 export default function App() {
   const [view, setView] = useState<ZernixViewId>("home");
   const [conditionKey, setConditionKey] = useState("frightened");
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [quickSettingsOpen, setQuickSettingsOpen] = useState(false);
+  const { setSelectedLootId } = useZernixGenerators();
+  const { profile, toastMessage } = useZernixUserData();
+
+  function handleOpenLootCard(lootCardId: string) {
+    setView("loot");
+    setSelectedLootId(lootCardId);
+  }
+
+  function handleOpenNoteKey(key: string) {
+    if (key.startsWith("loot:")) {
+      handleOpenLootCard(key.slice(5));
+      return;
+    }
+    if (key.startsWith("npc:") || key === "npc:current") {
+      setView("npc");
+      return;
+    }
+    if (key.startsWith("prep:") || key.startsWith("session:")) {
+      setView("prep");
+      return;
+    }
+    if (key.startsWith("home:")) {
+      setView("home");
+      return;
+    }
+    setView("history");
+  }
 
   const header = HEAD_COPY[view];
 
   let main: ReactNode;
   switch (view) {
     case "home":
-      main = <HomeDashboard onNavigate={setView} />;
+      main = (
+        <HomeDashboard
+          onNavigate={setView}
+          onOpenLootCard={handleOpenLootCard}
+          onOpenNoteKey={handleOpenNoteKey}
+        />
+      );
+      break;
+    case "table":
+      main = <TableModeView onExit={setView} />;
       break;
     case "loot":
       main = <LootGeneratorView />;
@@ -111,10 +159,10 @@ export default function App() {
       main = <ConditionsEncyclopediaView conditionKey={conditionKey} onPickCondition={setConditionKey} />;
       break;
     case "history":
-      main = <HistoryView />;
+      main = <HistoryView onOpenNoteKey={handleOpenNoteKey} />;
       break;
     case "favorites":
-      main = <FavoritesView />;
+      main = <FavoritesView onNavigate={setView} onOpenLootCard={handleOpenLootCard} />;
       break;
     case "settings":
       main = <SettingsView />;
@@ -123,6 +171,14 @@ export default function App() {
 
   return (
     <div className="zernix-app-root">
+      <ZernixProfileModal open={profileOpen} onClose={() => setProfileOpen(false)} />
+      <ZernixQuickSettingsModal open={quickSettingsOpen} onClose={() => setQuickSettingsOpen(false)} />
+
+      {toastMessage ? (
+        <div className="zernix-toast" role="status">
+          {toastMessage}
+        </div>
+      ) : null}
       <div className="zernix-bg-stack" aria-hidden>
         <div className="zernix-bg-stack__art" />
         <div className="zernix-bg-stack__silhouette" />
@@ -140,7 +196,7 @@ export default function App() {
         <div className="zernix-bg-stack__runes" />
       </div>
 
-      <div className="zernix-app-shell">
+      <div className={`zernix-app-shell${view === "table" ? " zernix-app-shell--table" : ""}`}>
         <aside className="zernix-region-sidebar">
           <div className="zernix-sidebar-inner">
             <div className="zernix-logo-slot" aria-label="Логотип ZERNIX" />
@@ -159,7 +215,10 @@ export default function App() {
                 key={id}
                 type="button"
                 className={`zernix-nav-btn ${view === id ? "is-active" : ""}`}
-                onClick={() => setView(id)}
+                onClick={() => {
+                  console.debug("[ZERNIX] nav", id);
+                  setView(id);
+                }}
               >
                 <Icon className="zernix-nav-icon" strokeWidth={1.25} />
                 <span>
@@ -175,7 +234,10 @@ export default function App() {
                 key={id}
                 type="button"
                 className={`zernix-nav-btn ${view === id ? "is-active" : ""}`}
-                onClick={() => setView(id)}
+                onClick={() => {
+                  console.debug("[ZERNIX] nav", id);
+                  setView(id);
+                }}
               >
                 <Icon className="zernix-nav-icon" strokeWidth={1.2} />
                 <span>
@@ -196,15 +258,46 @@ export default function App() {
               <p className="zernix-tagline">{header.subtitle}</p>
             </div>
             <div className="zernix-topbar-actions">
-              <button type="button" className="zernix-icon-btn" onClick={() => setView("settings")}>
+              <button
+                type="button"
+                className="zernix-icon-btn zernix-btn-press"
+                onClick={() => {
+                  console.debug("[ZERNIX] open quick settings");
+                  setQuickSettingsOpen(true);
+                }}
+              >
                 <Settings size={16} strokeWidth={1.5} />
                 Settings
               </button>
-              <button type="button" className="zernix-icon-btn">
+              <button
+                type="button"
+                className="zernix-icon-btn zernix-btn-press"
+                onClick={() => {
+                  console.debug("[ZERNIX] nav gold shortcut");
+                  setView("loot");
+                }}
+              >
                 <Coins size={16} strokeWidth={1.5} />
                 Gold
               </button>
-              <div className="zernix-avatar" aria-hidden />
+              <button
+                type="button"
+                className="zernix-avatar zernix-avatar-btn zernix-btn-press"
+                aria-label="Профиль"
+                title="Профиль"
+                onClick={() => {
+                  console.debug("[ZERNIX] open profile modal");
+                  setProfileOpen(true);
+                }}
+              >
+                {profile.avatarDataUrl ? (
+                  <img src={profile.avatarDataUrl} alt="" />
+                ) : (
+                  <span className="zernix-avatar__placeholder" aria-hidden>
+                    {(profile.displayName || "Z").trim().slice(0, 1).toUpperCase() || "Z"}
+                  </span>
+                )}
+              </button>
             </div>
           </header>
 

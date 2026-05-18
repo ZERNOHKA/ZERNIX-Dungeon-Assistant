@@ -42,11 +42,14 @@ npm run electron
 
 Лут и NPC идут через IPC в main-процесс (`electron/main.cjs`, `loot-core.mjs`, `npc-engine.mjs`).
 
-Клиент без базы и без `.mjs` движков — отдельная сборка:
+Клиент без базы и без `.mjs` движков — отдельная сборка (NSIS, `ZernixNexus-Client-Setup.exe`):
 
 ```bash
 npm run dist:client
+# или: npm run build && npm run build:client
 ```
+
+Если сборка падает с **«cannot access … app.asar»**: закройте запущенный exe из `dist_electron_client\win-unpacked`, окно проводника в этой папке и снова `npm run build:client` (перед сборкой автоматически удаляется `win-unpacked` через `prebuild:client`).
 
 Полная упаковка:
 
@@ -58,6 +61,8 @@ npm run dist
 
 | команда | что делает |
 |---------|------------|
+| `npm run dist:client` | Vite + клиентский NSIS (`electron-builder.client.yml`) |
+| `npm run build:client` | только `electron-builder` по `electron-builder.client.yml` (нужен уже собранный `dist/`) |
 | `npm run npc:test` | один NPC в консоль через npc-engine |
 | `npm run smoke:dnd-loot` | проверка генератора лута из tools |
 

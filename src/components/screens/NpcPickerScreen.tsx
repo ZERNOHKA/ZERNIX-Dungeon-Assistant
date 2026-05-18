@@ -35,7 +35,7 @@ export function NpcPickerScreen({ npc, onBack, onReveal }: NpcPickerScreenProps)
       setSummonError(
         hasBridge
           ? "Не удалось сгенерировать NPC. Проверьте подключение к хосту и настройки сети."
-          : "Генерация NPC доступна только в приложении ZERNIX для ПК (Electron).",
+          : "Не удалось взять шаблон NPC из данных контента — проверьте `data/app-content.json` (`npc.templates`).",
       );
       return;
     }

@@ -19,14 +19,14 @@ export type NpcPreviewState = {
 };
 
 export const DEFAULT_NPC_PREVIEW: NpcPreviewState = {
-  name: "Mark Northwind",
-  race: "Human",
-  creatureClass: "Merchant",
-  portraitLetter: "M",
-  visualTrait: "Broken silver tooth",
-  wantLine: "Recover stolen medallion",
-  avoidLine: "City guards",
-  secretLine: "Sells information to cultists",
+  name: "Жми «Сгенерировать NPC»",
+  race: "—",
+  creatureClass: "Союзник",
+  portraitLetter: "?",
+  visualTrait: "Жест или деталь одежды — чтобы узнать за столом без имени.",
+  wantLine: "Выгода или спокойствие: конкретная цель, без лирики.",
+  avoidLine: "Тема, от которой он отмахивается или уходит в молчание.",
+  secretLine: "Один факт, который можно вытащить давлением или сделкой.",
   str: 10,
   dex: 10,
   con: 10,

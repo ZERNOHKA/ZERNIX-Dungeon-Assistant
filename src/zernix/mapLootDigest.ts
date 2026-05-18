@@ -5,7 +5,7 @@ function extractTitle(displayLine: string): string {
   const line = displayLine.trim();
   if (!line) return "Предмет";
   const cut = line.split(/[—–\-]/)[0]?.trim() ?? line;
-  return cut.length > 96 ? `${cut.slice(0, 93)}…` : cut;
+  return cut.length > 72 ? `${cut.slice(0, 69)}…` : cut;
 }
 
 function inferRarity(displayLine: string): string {
@@ -22,8 +22,11 @@ function buildDescription(entry: LootItemDigestEntry): string {
   const title = extractTitle(entry.displayLine);
   const extra = [entry.conditionPrefixRu, entry.statusLine].filter(Boolean).join(" · ");
   const line = extra ? `${title} — ${extra}` : title;
-  if (line.length <= 200) return line;
-  return `${line.slice(0, 197)}…`;
+  const t = line.replace(/\s+/g, " ").trim();
+  if (t.length <= 88) return t;
+  const cut = t.slice(0, 85);
+  const sp = cut.lastIndexOf(" ");
+  return `${sp > 32 ? cut.slice(0, sp) : cut}…`;
 }
 
 function entryToCard(entry: LootItemDigestEntry, index: number, prefix: "m" | "g", source: LootCardModel["source"]): LootCardModel {

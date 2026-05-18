@@ -1,4 +1,5 @@
-import type { AppContentJson, NpcPortrait } from "../types/content";
+import { generateNpcAsync } from "../database.mjs";
+import type { AppContentJson, NpcPortrait, NpcTemplateEntry } from "../types/content";
 
 /** Сводка цен из npc-engine (сумма явных зм/см в строках услуг). */
 export interface NpcPricingRollup {
@@ -204,9 +205,109 @@ function mapEnginePayloadToResolvedCard(
   };
 }
 
+function splitMotivationAndSecret(raw: string): { motivation: string; secret: string } {
+  const t = String(raw).replace(/\s+/g, " ").trim();
+  if (!t) return { motivation: "Ищет понятную выгоду без лишней огласки.", secret: "Скрывает слабое место, которое дорого могут купить." };
+  const m = /\b(Тайна|Секрет)\s*:\s*/i.exec(t);
+  const idx = m?.index ?? -1;
+  if (idx >= 0) {
+    const motivation = t.slice(0, idx).replace(/[.;,:]+$/g, "").trim();
+    const secret = t.slice(idx).replace(/^[^:]+:\s*/i, "").trim();
+    return {
+      motivation: motivation || secret,
+      secret: secret || motivation,
+    };
+  }
+  return { motivation: t, secret: "Прячет вторую сделку, о которой не говорит при свидетелях." };
+}
+
+function pickNpcTemplate(npc: AppContentJson["npc"], form: NpcSummonForm): NpcTemplateEntry | null {
+  const templates = npc.templates;
+  if (!templates?.length) return null;
+
+  let pool = templates.filter((x) => x.raceKey === form.race);
+  if (!pool.length) pool = [...templates];
+
+  if (form.genderId === "female") {
+    const sub = pool.filter((x) => /жен/i.test(x.genderRu));
+    if (sub.length) pool = sub;
+  } else if (form.genderId === "male") {
+    const sub = pool.filter((x) => /муж/i.test(x.genderRu));
+    if (sub.length) pool = sub;
+  }
+
+  return pool[Math.floor(Math.random() * pool.length)] ?? null;
+}
+
+function templateToResolvedCard(
+  template: NpcTemplateEntry,
+  npc: AppContentJson["npc"],
+  form: NpcSummonForm,
+): ResolvedNpcCard {
+  const raceRu = npc.races.find((r) => r.value === form.race)?.labelRu ?? template.raceKey;
+  const roleLabelRu =
+    npc.roles.find((r) => r.value === form.role)?.labelRu ??
+    npc.roles.find((r) => r.value === template.roleKey)?.labelRu ??
+    "Союзник";
+  const occupationRu =
+    npc.occupations.find((o) => o.value === form.occupationValue)?.labelRu ?? template.occupationRu;
+
+  const { motivation, secret } = splitMotivationAndSecret(template.motivation);
+
+  const mannerSeed =
+    "Держится уверенно, отмечает детали среды и заранее прикидывает две линии отступления.";
+
+  const portraitPic = pickPortrait(npc.portraits, resolvedGenderPhysical(form.genderId));
+  const portrait = portraitPic.image ?? "";
+
+  const markdownFull = [
+    `# ${template.name}`,
+    `- **Раса:** ${raceRu} · ${template.genderRu}`,
+    `- **Роль:** ${roleLabelRu} · **Занятие:** ${occupationRu}`,
+    "",
+    "## Облик",
+    template.appearance,
+    "",
+    "## Мотивация",
+    motivation,
+    "",
+    "## Тайна",
+    secret,
+    "",
+    "## Имущество",
+    template.inventory,
+    "",
+    "_Браузерный режим: шаблон из app-content.json._",
+  ].join("\n");
+
+  return {
+    name: template.name,
+    epithet: "",
+    raceRu,
+    genderRu: template.genderRu,
+    roleLabelRu,
+    occupationRu,
+    appearance: template.appearance,
+    manner: mannerSeed,
+    motivation,
+    secret,
+    catchphrase: "Сначала границы, потом доверие — и только потом имена.",
+    inventory: template.inventory,
+    portrait,
+    dmQuick: {
+      visual: template.appearance.replace(/\s+/g, " ").trim().slice(0, 200),
+      wants: motivation.slice(0, 200),
+      avoids: mannerSeed.slice(0, 160),
+      secret: secret.slice(0, 200),
+    },
+    markdownFull,
+    pricingRollup: { totalZm: 0, totalSm: 0 },
+    encounterMeetingRu: `Первая встреча: ${occupationRu} как ${roleLabelRu.toLowerCase()} — торг, намёки, проверка намерений.`,
+  };
+}
+
 /**
- * Карточка NPC только через npc-engine (Electron IPC или клиент → удалённый хост).
- * В обычном браузере без preload возвращает null.
+ * Electron / IPC (npc-engine) или браузер: шаблоны из контента (`npc.templates`) + задержка из `database.mjs`.
  */
 export async function resolveNpcCard(
   npc: AppContentJson["npc"],
@@ -214,8 +315,13 @@ export async function resolveNpcCard(
 ): Promise<ResolvedNpcCard | null> {
   if (!npc.races?.length) return null;
 
-  if (typeof window === "undefined" || !window.electronAPI?.generateNpc) {
-    return null;
+  const ipc = typeof window !== "undefined" ? window.electronAPI : undefined;
+
+  if (typeof ipc?.generateNpc !== "function") {
+    await generateNpcAsync();
+    const tmpl = pickNpcTemplate(npc, form);
+    if (!tmpl) return null;
+    return templateToResolvedCard(tmpl, npc, form);
   }
 
   const genderResolved = resolvedGenderPhysical(form.genderId);
@@ -223,7 +329,7 @@ export async function resolveNpcCard(
   const partyRoleLabelRu = npc.roles.find((r) => r.value === form.role)?.labelRu ?? form.role;
 
   try {
-    const res = await window.electronAPI.generateNpc({
+    const res = await ipc.generateNpc({
       raceId: form.race,
       genderId: genderResolved,
       professionId,

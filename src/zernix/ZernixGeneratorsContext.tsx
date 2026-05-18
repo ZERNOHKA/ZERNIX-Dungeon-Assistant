@@ -8,8 +8,9 @@ import {
   type ReactNode,
 } from "react";
 
+import { useZernixUserData } from "../context/ZernixUserDataContext";
 import { useAppContent } from "../hooks/useAppContent";
-import { resolveNpcCard, type NpcSummonForm } from "../lib/npcSummon";
+import { resolveNpcCard, type NpcSummonForm, type ResolvedNpcCard } from "../lib/npcSummon";
 import type { LootDigestPayload } from "../types/lootDigest";
 import type { SessionBrief } from "../vite-env";
 import { runLootGeneration, type LootFormBridge } from "./generators/lootBridge";
@@ -17,6 +18,11 @@ import { runSessionGeneration, type SessionFormBridge } from "./generators/sessi
 import { resolvedNpcToPreviewState } from "./mapNpcPreview";
 import type { LootCardModel, NpcPreviewState, SessionPreviewModel } from "./models";
 import { defaultNpcPreview } from "./models";
+import { narrativeFieldsFromResolvedNpc, type NarrativeRerollSlot } from "./npcNarrativeCompose";
+import { sanitizeNpcPreviewState } from "./npcUi";
+import { runQuickPreset as runQuickPresetCore, type QuickPresetId, type QuickPresetResult } from "./quickPresets";
+import { composeSessionEnvironmentText } from "./sessionAutoEnvironmentText";
+import { finalizeSessionMarkdownForUi } from "./sessionNarrativeCleanup";
 
 type ZernixGeneratorsContextValue = {
   contentReady: boolean;
@@ -31,7 +37,7 @@ type ZernixGeneratorsContextValue = {
   setSelectedLootId: (id: string | null) => void;
   lootForm: LootFormBridge;
   setLootForm: (patch: Partial<LootFormBridge>) => void;
-  generateLoot: () => Promise<void>;
+  generateLoot: () => Promise<LootCardModel | null>;
 
   npc: NpcPreviewState;
   setNpc: (n: NpcPreviewState) => void;
@@ -39,19 +45,22 @@ type ZernixGeneratorsContextValue = {
   setNpcForm: (patch: Partial<NpcSummonForm>) => void;
   npcBusy: boolean;
   npcError: string | null;
-  generateNpc: () => Promise<void>;
+  generateNpc: () => Promise<NpcPreviewState | null>;
+  lastResolvedNpcCard: ResolvedNpcCard | null;
+  rerollNpcNarrativeField: (slot: NarrativeRerollSlot) => void;
 
   prepSummary: string;
   setPrepSummary: (s: string) => void;
   sessionMarkdown: string | null;
-  /** Структурированный бриф (предпочтительно для UI); plain-текст остаётся в sessionMarkdown. */
   sessionBrief: SessionBrief | null;
   sessionPreview: SessionPreviewModel | null;
   sessionBusy: boolean;
   sessionError: string | null;
   sessionForm: SessionFormBridge;
   setSessionForm: (patch: Partial<SessionFormBridge>) => void;
-  generateSession: () => Promise<void>;
+  generateSession: () => Promise<{ title: string; excerpt: string } | null>;
+
+  runQuickPreset: (id: QuickPresetId) => Promise<QuickPresetResult>;
 };
 
 const ZernixGeneratorsContext = createContext<ZernixGeneratorsContextValue | null>(null);
@@ -90,6 +99,7 @@ function initialLootForm(): LootFormBridge {
 
 export function ZernixGeneratorsProvider({ children }: { children: ReactNode }) {
   const { data: content } = useAppContent();
+  const { worldHints, patchWorldHints, appendSessionHookLine } = useZernixUserData();
 
   const [lootCards, setLootCards] = useState<LootCardModel[]>([]);
   const [lootDigest, setLootDigest] = useState<LootDigestPayload | null>(null);
@@ -101,10 +111,11 @@ export function ZernixGeneratorsProvider({ children }: { children: ReactNode }) 
 
   const [lootForm, setLootFormState] = useState<LootFormBridge>(initialLootForm);
 
-  const [npc, setNpc] = useState<NpcPreviewState>(() => defaultNpcPreview());
+  const [npc, setNpc] = useState<NpcPreviewState>(() => sanitizeNpcPreviewState(defaultNpcPreview()));
   const [npcForm, setNpcFormState] = useState<NpcSummonForm>(DEFAULT_NPC_FORM);
   const [npcBusy, setNpcBusy] = useState(false);
   const [npcError, setNpcError] = useState<string | null>(null);
+  const [lastResolvedNpcCard, setLastResolvedNpcCard] = useState<ResolvedNpcCard | null>(null);
 
   const [prepSummary, setPrepSummary] = useState(
     "Нажмите «Сгенерировать подготовку» — здесь появится текст для копирования (без разметки).",
@@ -141,14 +152,14 @@ export function ZernixGeneratorsProvider({ children }: { children: ReactNode }) 
     setSessionFormState((prev) => ({ ...prev, ...patch }));
   }, []);
 
-  const generateLoot = useCallback(async () => {
+  const generateLoot = useCallback(async (): Promise<LootCardModel | null> => {
     setLootBusy(true);
     setLootError(null);
     try {
       const res = await runLootGeneration(lootForm);
       if (!res.ok) {
         setLootError(res.error);
-        return;
+        return null;
       }
       setLootCards(res.cards);
       setLootDigest(res.digest);
@@ -156,51 +167,107 @@ export function ZernixGeneratorsProvider({ children }: { children: ReactNode }) 
       setLootNarrativeBlock(res.narrativeBlock);
       const firstId = res.cards[0]?.id ?? null;
       setSelectedLootId(firstId);
+      return res.cards[0] ?? null;
     } finally {
       setLootBusy(false);
     }
   }, [lootForm]);
 
-  const generateNpc = useCallback(async () => {
+  const generateNpc = useCallback(async (): Promise<NpcPreviewState | null> => {
     setNpcBusy(true);
     setNpcError(null);
     try {
       if (!content?.npc) {
         setNpcError("Контент NPC не загружен.");
-        return;
+        return null;
       }
-      const card = await resolveNpcCard(content.npc, npcForm);
+      const hasOcc = content.npc.occupations.some((o) => o.value === npcForm.occupationValue);
+      const occ = hasOcc
+        ? npcForm.occupationValue
+        : content.npc.occupations[Math.floor(Math.random() * content.npc.occupations.length)]?.value ?? "merchant";
+      const card = await resolveNpcCard(content.npc, { ...npcForm, occupationValue: occ });
       if (!card) {
+        setLastResolvedNpcCard(null);
         setNpcError(
           typeof window !== "undefined" && window.electronAPI?.generateNpc
             ? "Не удалось построить карточку NPC."
-            : "Создание NPC доступно в Electron с npc-engine.",
+            : "Не удалось выбрать шаблон NPC в контенте (пустой массив templates). Обновите data/app-content.json.",
         );
-        return;
+        return null;
       }
-      setNpc(resolvedNpcToPreviewState(card));
+      const preview = resolvedNpcToPreviewState(card, worldHints);
+      setLastResolvedNpcCard(card);
+      setNpc(preview);
+      patchWorldHints({ lastNpcName: card.name.trim() });
+      return preview;
     } finally {
       setNpcBusy(false);
     }
-  }, [content, npcForm]);
+  }, [content, npcForm, patchWorldHints, worldHints]);
 
-  const generateSession = useCallback(async () => {
+  const generateSession = useCallback(async (): Promise<{ title: string; excerpt: string } | null> => {
     setSessionBusy(true);
     setSessionError(null);
     try {
-      const res = await runSessionGeneration(sessionForm);
+      const envBody = composeSessionEnvironmentText(sessionForm, worldHints, Date.now());
+      const merged: SessionFormBridge = {
+        ...sessionForm,
+        environmentText: envBody,
+      };
+      const res = await runSessionGeneration(merged);
       if (!res.ok) {
         setSessionError(res.error);
-        return;
+        return null;
       }
-      setSessionMarkdown(res.markdown);
+      const mdClean = finalizeSessionMarkdownForUi(res.markdown);
+      setSessionMarkdown(mdClean);
       setSessionBrief(res.sessionBrief ?? null);
       setSessionPreview(res.preview);
-      setPrepSummary(res.markdown);
+      setPrepSummary(mdClean);
+      const title = res.preview?.title?.trim() || res.sessionBrief?.title?.trim() || "Сессия";
+      const excerpt = res.preview?.excerpt?.trim() || "";
+      return { title, excerpt };
     } finally {
       setSessionBusy(false);
     }
-  }, [sessionForm]);
+  }, [sessionForm, worldHints]);
+
+  const rerollNpcNarrativeField = useCallback(
+    (slot: NarrativeRerollSlot) => {
+      const card = lastResolvedNpcCard;
+      if (!card) return;
+      const narr = narrativeFieldsFromResolvedNpc(card, {
+        rerollSlot: slot,
+        entropyMs: Date.now(),
+        world: worldHints,
+      });
+      setNpc((prev) =>
+        sanitizeNpcPreviewState({
+          ...prev,
+          ...(slot === "visual" ? { visualTrait: narr.visualTrait } : {}),
+          ...(slot === "want" ? { wantLine: narr.wantLine } : {}),
+          ...(slot === "avoid" ? { avoidLine: narr.avoidLine } : {}),
+          ...(slot === "secret" ? { secretLine: narr.secretLine } : {}),
+        }),
+      );
+    },
+    [lastResolvedNpcCard, worldHints],
+  );
+
+  const runQuickPreset = useCallback(
+    async (id: QuickPresetId): Promise<QuickPresetResult> => {
+      return runQuickPresetCore(id, {
+        setNpcForm,
+        setLootForm,
+        setSessionForm,
+        generateNpc,
+        generateLoot,
+        generateSession,
+        appendSessionHookLine,
+      });
+    },
+    [appendSessionHookLine, generateLoot, generateNpc, generateSession, setLootForm, setNpcForm, setSessionForm],
+  );
 
   const value = useMemo<ZernixGeneratorsContextValue>(
     () => ({
@@ -223,6 +290,8 @@ export function ZernixGeneratorsProvider({ children }: { children: ReactNode }) 
       npcBusy,
       npcError,
       generateNpc,
+      lastResolvedNpcCard,
+      rerollNpcNarrativeField,
       prepSummary,
       setPrepSummary,
       sessionMarkdown,
@@ -233,6 +302,7 @@ export function ZernixGeneratorsProvider({ children }: { children: ReactNode }) 
       sessionForm,
       setSessionForm,
       generateSession,
+      runQuickPreset,
     }),
     [
       content?.loot?.types?.length,
@@ -253,6 +323,8 @@ export function ZernixGeneratorsProvider({ children }: { children: ReactNode }) 
       npcBusy,
       npcError,
       generateNpc,
+      lastResolvedNpcCard,
+      rerollNpcNarrativeField,
       prepSummary,
       sessionMarkdown,
       sessionBrief,
@@ -262,6 +334,7 @@ export function ZernixGeneratorsProvider({ children }: { children: ReactNode }) 
       sessionForm,
       setSessionForm,
       generateSession,
+      runQuickPreset,
     ],
   );
 

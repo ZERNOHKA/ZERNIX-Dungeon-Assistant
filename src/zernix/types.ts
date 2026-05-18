@@ -1,5 +1,6 @@
 export type ZernixViewId =
   | "home"
+  | "table"
   | "loot"
   | "npc"
   | "prep"
