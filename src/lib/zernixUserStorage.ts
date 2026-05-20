@@ -1,3 +1,5 @@
+import type { PlaySessionMember, PlaySessionMeta } from "./playSession";
+
 export type FavoriteKind = "loot" | "npc" | "session";
 
 export type FavoriteEntry = {
@@ -42,10 +44,16 @@ export type DmTimelineEntry = {
   lootId?: string;
 };
 
+export type { PlaySessionMember, PlaySessionMeta };
+
 export type DmSessionBlock = {
   active: boolean;
   startedAt: number;
   timeline: DmTimelineEntry[];
+  /** Название и параметры стола (не из JSON-заглушки). */
+  meta?: PlaySessionMeta;
+  /** Отряд с HP — обновляется на главной в реальном времени. */
+  party?: PlaySessionMember[];
 };
 
 export const DM_TIMELINE_CAP = 48;
@@ -79,8 +87,34 @@ function normalizeNpcFavoriteRefKey(refKey: string): string {
   return namePart ? `npc:${namePart}` : refKey;
 }
 
+function isPlaySessionMember(x: unknown): x is PlaySessionMember {
+  if (!x || typeof x !== "object") return false;
+  const o = x as Record<string, unknown>;
+  return (
+    typeof o.id === "string" &&
+    typeof o.name === "string" &&
+    typeof o.subtitle === "string" &&
+    typeof o.level === "number" &&
+    typeof o.hpCurrent === "number" &&
+    typeof o.hpMax === "number"
+  );
+}
+
+function isPlaySessionMeta(x: unknown): x is PlaySessionMeta {
+  if (!x || typeof x !== "object") return false;
+  const o = x as Record<string, unknown>;
+  return (
+    typeof o.title === "string" &&
+    typeof o.partyLevel === "number" &&
+    typeof o.playerCount === "number" &&
+    typeof o.difficulty === "string" &&
+    typeof o.environmentKey === "string" &&
+    typeof o.updatedAt === "number"
+  );
+}
+
 export function defaultDmSession(): DmSessionBlock {
-  return { active: false, startedAt: 0, timeline: [] };
+  return { active: false, startedAt: 0, timeline: [], meta: undefined, party: undefined };
 }
 
 export function defaultWorldHints(): ZernixWorldHints {
@@ -188,10 +222,14 @@ function mergeBundle(raw: unknown): ZernixUserBundle {
   if (p.dmSession && typeof p.dmSession === "object") {
     const raw = p.dmSession as Partial<DmSessionBlock>;
     const timelineRaw = Array.isArray(raw.timeline) ? raw.timeline.filter(isDmTimelineEntry) : [];
+    const partyRaw = Array.isArray(raw.party) ? raw.party.filter(isPlaySessionMember) : undefined;
+    const metaRaw = isPlaySessionMeta(raw.meta) ? raw.meta : undefined;
     dmSession = {
       active: Boolean(raw.active),
       startedAt: typeof raw.startedAt === "number" ? raw.startedAt : 0,
       timeline: capDmTimeline(timelineRaw),
+      meta: metaRaw,
+      party: partyRaw?.length ? partyRaw : undefined,
     };
   }
 

@@ -3,10 +3,14 @@
 @tailwind utilities;
 
 /*
-  Графика (положите файлы в public/ и раскомментируйте в :root ниже в @layer base или здесь):
-    --zernix-logo-dragon: url("/logo_dragon.png");       — слот в сайдбаре (.zernix-logo-slot)
-    --zernix-d20-art: url("/d20_dice.png");             — кубик внизу слева (.zernix-d20 слой в компоненте)
-    --zernix-home-hero: url("/bg_dragon_castle.png");   — атмосферный фон под UI (слой .zernix-app-bg::after)
+  АРТ ZERNIX — одна папка: src/assets/
+
+  logo-dragon.png     → логотип (.zernix-logo-slot)
+  publicd20_dice.png  → кубик d20 (.zernix-d20-slot)
+  backgrounds/<view>/ → фоны разделов (.zernix-bg-stack__home-dragon)
+
+  Подключение: src/lib/zernixArt.ts и src/lib/sectionBackgrounds.ts
+  Не кладите дубликаты в public/assets/ — они не используются.
 */
 
 @layer base {
@@ -23,11 +27,9 @@
     --ornate-corner: 15px;
     --ornate-stroke: 2px;
     --ornate-inset: 12px;
-    /* Пример подключения арта:
-    --zernix-logo-dragon: url("/logo_dragon.png");
-    --zernix-d20-art: url("/d20_dice.png");
-    --zernix-home-hero: url("/your_dragon_background.png");
-    */
+    /* Слоты под арт (картинки подключаются через src/App.tsx → import).
+       Чтобы добавить кубик D20 или иконки QS — положите PNG в src/assets/
+       и импортируйте по аналогии в App.tsx. */
   }
 
   html {
@@ -114,8 +116,8 @@
 
   .zernix-logo-slot {
     border-radius: 0;
-    box-shadow: inset 0 0 18px rgba(212, 175, 55, 0.05);
-    background-color: rgba(0, 0, 0, 0.5);
+    box-shadow: none;
+    background-color: transparent;
   }
 
   .zernix-brand-mark {

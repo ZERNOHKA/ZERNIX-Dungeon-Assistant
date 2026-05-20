@@ -258,10 +258,10 @@ export function ZernixPreview({ view, conditionKey, onClose }: Props) {
           <div className="zernix-field-label">Внешний признак</div>
           <p className="zernix-codex__prose">{npc.visualTrait}</p>
           <div className="zernix-gold-rule" />
-          <div className="zernix-field-label">Чего хочет</div>
+          <div className="zernix-field-label">Цель</div>
           <p className="zernix-codex__prose">{npc.wantLine}</p>
           <div className="zernix-gold-rule" />
-          <div className="zernix-field-label">Чего не хочет</div>
+          <div className="zernix-field-label">Страх</div>
           <p className="zernix-codex__prose">{npc.avoidLine}</p>
           <div className="zernix-gold-rule" />
           <div className="zernix-field-label">Секрет</div>

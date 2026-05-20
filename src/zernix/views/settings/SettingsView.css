@@ -1,0 +1,253 @@
+/*
+ * ZERNIX Settings View Styles (Stage 4 extraction)
+ * Source: src/ZernixTheme.css
+ * Component: src/zernix/views/settings/SettingsView.tsx
+ * NOTE: Uses legacy zernix-* classes. Duplicated in ZernixTheme.css until wiring.
+ */
+
+/* --- Page container fade-in --- */
+.zernix-page {
+  animation: zernix-fade-in 0.6s var(--zx-ease-out) both;
+}
+
+/* --- Premium panel shell (shared legacy wrapper) --- */
+/* —— Premium panel —— */
+.zernix-premium-panel {
+  position: relative;
+  isolation: isolate;
+  border-radius: var(--zx-radius);
+  background-image:
+    radial-gradient(ellipse 120px 88px at 0 0, rgba(212, 169, 58, 0.09), transparent),
+    radial-gradient(ellipse 130px 96px at 100% 100%, rgba(212, 169, 58, 0.06), transparent),
+    radial-gradient(ellipse 90% 65% at 50% 0%, rgba(255, 255, 255, 0.03), transparent 52%),
+    var(--zx-noise-tile),
+    linear-gradient(180deg, rgba(18, 22, 34, 0.96), rgba(8, 10, 16, 0.98));
+  background-blend-mode: normal, normal, soft-light, overlay, normal;
+  background-size:
+    auto,
+    auto,
+    auto,
+    240px 240px,
+    auto;
+  border: 1px solid rgba(212, 169, 58, 0.35);
+  box-shadow:
+    var(--zx-float-shadow),
+    0 24px 56px rgba(0, 0, 0, 0.38);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.zernix-premium-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  box-shadow:
+    inset 0 0 0 1px rgba(212, 169, 58, 0.06),
+    inset 0 0 56px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.045);
+}
+
+.zernix-premium-panel::after {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: calc(var(--zx-radius) - 1px);
+  pointer-events: none;
+  z-index: 0;
+  background: linear-gradient(145deg, rgba(212, 169, 58, 0.07), transparent 42%, transparent 100%);
+  opacity: 0.85;
+}
+
+.zernix-premium-panel > * {
+  position: relative;
+  z-index: 1;
+}
+
+.zernix-panel-pad {
+  padding: 26px 28px 30px;
+}
+
+.zernix-panel-heading {
+  font-family: var(--zx-font-display);
+  font-size: 15px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--zx-gold-bright);
+  margin-bottom: 18px;
+  text-shadow: 0 0 24px rgba(212, 169, 58, 0.18);
+}
+
+/* --- Utility spacing --- */
+.zernix-mt-lg {
+  margin-top: 20px;
+}
+
+/* --- Form fields + inputs + selects --- */
+.zernix-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.zernix-field--checkboxes {
+  grid-column: 1 / -1;
+}
+
+.zernix-field-label {
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--zx-text-dim);
+}
+
+.zernix-input,
+.zernix-select {
+  appearance: none;
+  border-radius: calc(var(--zx-radius) - 8px);
+  border: 1px solid var(--zx-border);
+  background: rgba(8, 10, 14, 0.72);
+  color: var(--zx-text);
+  font-family: var(--zx-font-body);
+  font-size: 13px;
+  padding: 11px 14px;
+  outline: none;
+  box-shadow: inset 0 0 0 rgba(212, 169, 58, 0);
+  transition:
+    border-color 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.zernix-input:focus,
+.zernix-select:focus {
+  border-color: rgba(241, 208, 122, 0.55);
+  box-shadow:
+    0 0 0 1px rgba(212, 169, 58, 0.18),
+    0 0 22px rgba(212, 169, 58, 0.12);
+}
+
+.zernix-input--center {
+  text-align: center;
+}
+
+.zernix-textarea {
+  min-height: 72px;
+  resize: vertical;
+}
+
+.zernix-select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23d4a93a' stroke-width='1.5'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+}
+
+/* --- Secondary buttons --- */
+.zernix-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 11px 16px;
+  margin-top: 10px;
+  border-radius: calc(var(--zx-radius) - 6px);
+  border: 1px solid var(--zx-border);
+  background: linear-gradient(180deg, rgba(14, 17, 26, 0.75), rgba(6, 8, 12, 0.65));
+  color: var(--zx-gold-mid);
+  font-family: var(--zx-font-body);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 6px 18px rgba(0, 0, 0, 0.35);
+  transition:
+    background var(--zx-dur) var(--zx-ease-out),
+    box-shadow var(--zx-dur) var(--zx-ease-out),
+    transform var(--zx-dur-slow) var(--zx-ease-out),
+    border-color var(--zx-dur) var(--zx-ease-out);
+}
+
+.zernix-btn-secondary:hover {
+  background: rgba(212, 169, 58, 0.1);
+  border-color: rgba(241, 208, 122, 0.42);
+  box-shadow:
+    0 0 32px rgba(212, 169, 58, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 8px 22px rgba(0, 0, 0, 0.42);
+  transform: translateY(-2px);
+}
+
+.zernix-btn-secondary--block {
+  width: 100%;
+}
+
+/* --- MVP toggles + switch controls --- */
+.zernix-quick-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.zernix-toggle-row-mvp {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(212, 169, 58, 0.12);
+  background: rgba(5, 7, 11, 0.45);
+}
+
+.zernix-toggle-row-mvp__label {
+  font-weight: 600;
+  font-size: 13px;
+  color: rgba(245, 230, 184, 0.92);
+}
+
+.zernix-toggle-row-mvp__hint {
+  margin-top: 4px;
+  font-size: 11px;
+  line-height: 1.42;
+  color: rgba(245, 230, 184, 0.48);
+}
+
+.zernix-switch {
+  flex-shrink: 0;
+  position: relative;
+  width: 48px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid rgba(212, 169, 58, 0.28);
+  background: rgba(2, 3, 6, 0.75);
+}
+
+.zernix-switch.is-on {
+  background: linear-gradient(145deg, rgba(212, 169, 58, 0.35), rgba(241, 208, 122, 0.16));
+}
+
+.zernix-switch__knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.4), transparent 62%), rgba(245, 230, 184, 0.9);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+  transition: transform var(--zx-dur) var(--zx-ease-out);
+}
+
+.zernix-switch.is-on .zernix-switch__knob {
+  transform: translateX(20px);
+}
+
+/* --- Button press feedback (switch rows) --- */
+.zernix-btn-press:active {
+  transform: scale(0.98);
+}

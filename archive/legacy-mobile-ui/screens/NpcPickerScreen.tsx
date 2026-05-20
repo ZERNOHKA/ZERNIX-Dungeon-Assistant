@@ -29,13 +29,14 @@ export function NpcPickerScreen({ npc, onBack, onReveal }: NpcPickerScreenProps)
   const summon = async () => {
     setSummonError(null);
     const form: NpcSummonForm = { race, occupationValue: occupation, role, genderId };
-    const card = await resolveNpcCard(npc, form);
+    const { card, error } = await resolveNpcCard(npc, form);
     if (!card) {
       const hasBridge = typeof window !== "undefined" && Boolean(window.electronAPI?.generateNpc);
       setSummonError(
-        hasBridge
-          ? "Не удалось сгенерировать NPC. Проверьте подключение к хосту и настройки сети."
-          : "Не удалось взять шаблон NPC из данных контента — проверьте `data/app-content.json` (`npc.templates`).",
+        error?.trim() ||
+          (hasBridge
+            ? "Не удалось сгенерировать NPC. Проверьте движок и настройки сети."
+            : "Не удалось взять шаблон NPC из данных контента — проверьте `data/app-content.json` (`npc.templates`)."),
       );
       return;
     }

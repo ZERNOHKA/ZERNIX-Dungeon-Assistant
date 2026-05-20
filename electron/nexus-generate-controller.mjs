@@ -49,6 +49,10 @@ export async function runGenerateNpcServerPipeline(payload) {
     data = enrichNpcPayloadFromDatabase(db, data, opts, Math.random);
     markdown = mod.formatNPCMarkdown(data);
     return { ok: true, data, markdown, nexusEnriched: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn("[ZERNIX] NPC enrich (SQLite) failed, using base engine:", message);
+    return { ok: true, data, markdown, nexusEnriched: false };
   } finally {
     db.close();
   }

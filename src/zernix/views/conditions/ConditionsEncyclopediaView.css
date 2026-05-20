@@ -1,0 +1,82 @@
+/*
+ * ZERNIX Conditions Encyclopedia Styles (Stage 4 extraction)
+ * Source: src/ZernixTheme.css
+ * Component: src/zernix/views/conditions/ConditionsEncyclopediaView.tsx
+ * NOTE: Uses legacy zernix-* classes (no zx-cond- prefix in codebase yet).
+ *       Duplicated in ZernixTheme.css until wiring.
+ */
+
+/* --- Page container fade-in --- */
+.zernix-page {
+  animation: zernix-fade-in 0.6s var(--zx-ease-out) both;
+}
+
+/* --- List chevron (condition rows) --- */
+.zernix-list-chevron {
+  width: 16px;
+  height: 16px;
+  color: rgba(212, 169, 58, 0.35);
+  flex-shrink: 0;
+}
+
+/* --- Conditions encyclopedia list + debuff cards --- */
+/* —— Conditions —— */
+.zernix-conditions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.zernix-condition-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 17px 20px;
+  border-radius: var(--zx-radius);
+  border: 1px solid rgba(212, 169, 58, 0.32);
+  background: linear-gradient(180deg, rgba(18, 22, 34, 0.92), rgba(8, 10, 16, 0.92));
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  box-shadow: var(--zx-float-shadow);
+  transition:
+    border-color 0.28s ease,
+    box-shadow 0.28s ease,
+    transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    filter 0.25s ease;
+}
+
+.zernix-condition-row:hover {
+  border-color: rgba(224, 184, 77, 0.45);
+  transform: translateY(-2px);
+}
+
+.zernix-condition-row.is-active {
+  border-color: rgba(241, 208, 122, 0.62);
+  box-shadow:
+    0 0 38px rgba(212, 169, 58, 0.18),
+    0 0 72px rgba(0, 0, 0, 0.42),
+    inset 0 0 36px rgba(212, 169, 58, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.zernix-condition-icon {
+  width: 22px;
+  height: 22px;
+  color: var(--zx-gold-dim);
+}
+
+.zernix-condition-title {
+  font-family: var(--zx-font-display);
+  font-size: 14px;
+  letter-spacing: 0.08em;
+}
+
+.zernix-condition-hint {
+  font-size: 11px;
+  color: var(--zx-text-dim);
+  margin-top: 3px;
+}

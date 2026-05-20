@@ -1,7 +1,17 @@
-import { generateSessionAsync } from "../../database.mjs";
+import { generateSessionAsync } from "../../services/mocks/database.mjs";
 import type { GenerateLootResult, SessionBrief } from "../../vite-env";
+import {
+  biomeLabelRu,
+  getBiome,
+  pickFromBiome,
+  sceneBeatsForBiome,
+} from "../../lib/zernixLocationCatalog";
 import type { SessionPreviewModel } from "../models";
-import { finalizeSessionMarkdownForUi } from "../sessionNarrativeCleanup";
+import {
+  finalizeSessionMarkdownForUi,
+  sanitizeSessionBrief,
+  sanitizeSessionParagraph,
+} from "../sessionNarrativeCleanup";
 import { pitchExcerpt, presentSessionAtTable } from "../sessionAtTablePresent";
 
 export type SessionFormBridge = {
@@ -15,20 +25,11 @@ export type SessionFormBridge = {
   onlyMagic: boolean;
 };
 
-function biomeLabelRu(environmentKey: string): string {
-  const map: Record<string, string> = {
-    dungeon: "Подземелье",
-    forest: "Лес",
-    cave: "Пещера",
-    urban: "Город",
-    any: "Смешанный биом",
-  };
-  return map[environmentKey] ?? map.any;
-}
-
 function difficultyLabelRu(d: string): string {
-  if (d === "low") return "низкая";
-  if (d === "high") return "высокая";
+  const k = String(d ?? "").trim().toLowerCase();
+  if (k === "low" || k === "easy") return "низкая";
+  if (k === "high" || k === "hard") return "высокая";
+  if (k === "deadly") return "смертельная";
   return "средняя";
 }
 
@@ -36,6 +37,16 @@ function excerptFromMarkdown(md: string, max = 320): string {
   const t = md.trim().replace(/\r/g, "");
   if (t.length <= max) return t;
   return `${t.slice(0, max).trim()}…`;
+}
+
+/** Лёгкий и стабильный хеш для подмешивания энтропии в выбор заголовка. */
+function fnv1a32(s: string): number {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < s.length; i += 1) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return h >>> 0;
 }
 
 export function sessionMarkdownToPreview(markdown: string): SessionPreviewModel {
@@ -61,10 +72,27 @@ function previewFromSessionBrief(b: SessionBrief): SessionPreviewModel {
 async function runMockSessionGeneration(form: SessionFormBridge): Promise<SessionBridgeResult> {
   await generateSessionAsync();
 
-  const salt = Math.floor(Date.now() / 1000) >>> 0;
+  // Энтропия: время + параметры формы → стабильное распределение по сценам,
+  // но без коллизий «два запуска в одну секунду = один и тот же заголовок».
+  const saltSeed =
+    (Date.now() & 0xfffff) ^
+    ((form.partyLevel & 0x1f) << 14) ^
+    ((form.playerCount & 0x0f) << 9) ^
+    (fnv1a32(`${form.environmentKey}|${form.difficulty}|${form.environmentText.length}`) >>> 0);
+  const salt = saltSeed >>> 0;
+  const biomeDef = getBiome(form.environmentKey);
   const biome = biomeLabelRu(form.environmentKey);
   const diffRu = difficultyLabelRu(form.difficulty);
-  const userCtx = form.environmentText.trim();
+  const sceneBeat = pickFromBiome(form.environmentKey, sceneBeatsForBiome(form.environmentKey), salt);
+  const atmoLine = pickFromBiome(form.environmentKey, biomeDef.atmosphereLines, salt >>> 3);
+  const enemyA = pickFromBiome(form.environmentKey, biomeDef.enemyLines, salt >>> 7);
+  const enemyB = pickFromBiome(form.environmentKey, biomeDef.enemyLines, salt >>> 11);
+  const rewardHint = pickFromBiome(form.environmentKey, biomeDef.rewardHints, salt >>> 13);
+  // ZernixGeneratorsContext.generateSession() передаёт сюда уже собранный LLM-промпт
+  // (`composeSessionEnvironmentText`). В IPC-режиме это идёт в Electron-движок,
+  // но для mock-ветки промпт нельзя пускать в hook/atmosphere/encounterPitch —
+  // используем `sanitizeSessionParagraph`, которая срезает «Сгенерируй …», «Партия: …» и т.п.
+  const userCtx = sanitizeSessionParagraph(form.environmentText ?? "").trim();
 
   const titles = [
     "Затворница между двумя клятвами",
@@ -72,14 +100,35 @@ async function runMockSessionGeneration(form: SessionFormBridge): Promise<Sessio
     "Прах и пергамент под одной свечой",
     "Цена молчания на причале",
     "Подземный аукцион чужих имён",
+    "Стук в дверь, которой нет на плане",
+    "Свеча у саркофага догорает быстрее",
+    "Караван без следов до и после",
+    "Подпись на пергаменте чужой кровью",
+    "Колокол, который никто не подвешивал",
+    "Сделка, которую нельзя оплатить золотом",
+    "Тень, отставшая от хозяина",
+    "Чужие огни на дне знакомого колодца",
+    "Печать, которая жжёт пальцы только одного",
+    "Голос из соседней комнаты на знакомом языке",
+    "Сон, повторившийся у разных людей подряд",
   ];
   const title = titles[salt % titles.length] ?? titles[0]!;
 
   const encounterPitch =
     userCtx.slice(0, 400) ||
-    `Группа ${form.playerCount} героев (${form.partyLevel} ур.) вторгается в ${biome}: старый порядок уже треснул, и каждый жест считывают как торг.`;
+    `${sceneBeat.charAt(0).toUpperCase()}${sceneBeat.slice(1)}. Группа ${form.playerCount} героев (${form.partyLevel} ур.) в ${biome}: старый порядок уже треснул, и каждый жест считывают как торг.`;
 
-  const sessionBrief: SessionBrief = {
+  const diffKey = String(form.difficulty ?? "").trim().toLowerCase();
+  const dangerLine =
+    diffKey === "high" || diffKey === "hard"
+      ? "Серьёзный урон возможен уже на первой ошибке времени или шума."
+      : diffKey === "deadly"
+        ? "Смертельный риск: одна неверная сцена — и партия теряет персонажа или ключевую улику."
+        : diffKey === "low" || diffKey === "easy"
+          ? "Риск есть, но отступление кажется выполнимым до середины событий."
+          : "Ошибки бьют по ресурсам: лечение и слоты уходят заметнее, чем казалось.";
+
+  const rawBrief: SessionBrief = {
     title,
     themeLabel: "Давление времени и выбор",
     sceneTypeLabel: "Исследование",
@@ -97,21 +146,13 @@ async function runMockSessionGeneration(form: SessionFormBridge): Promise<Sessio
     atmosphere:
       userCtx.length > 12
         ? `Контекст игроков: ${userCtx.slice(0, 280)}`
-        : "Лицо сцены спокойное, но дорогое: малейший шум перекраивает ставки.",
-    danger:
-      form.difficulty === "high"
-        ? "Серьёзный урон возможен уже на первой ошибке времени или шума."
-        : form.difficulty === "low"
-          ? "Риск есть, но отступление кажется выполнимым до середины событий."
-          : "Ошибки бьют по ресурсам: лечение и слоты уходят заметнее, чем казалось.",
-    enemies: [
-      "Патруль с экономией сил («мы не враги, пока платят железом или информацией»).",
-      "Охрана простого аппарата: сигнал, ловушка, второй вход.",
-    ],
+        : atmoLine || "Лицо сцены спокойное, но дорогое: малейший шум перекраивает ставки.",
+    danger: dangerLine,
+    enemies: [enemyA, enemyB].filter(Boolean),
     rewardLines: [
       form.onlyMagic
-        ? "Магические следы сильнее мундейна: ценный ключ не от тех дверей, что хотелось."
-        : "Смесь мундейна и магии: ценный ключ не от тех дверей, что хотелось.",
+        ? rewardHint || "Магические следы сильнее мундейна: ценный ключ не от тех дверей, что хотелось."
+        : rewardHint || "Смесь мундейна и магии: ценный ключ не от тех дверей, что хотелось.",
       form.packCount
         ? `${form.packCount} групп оставили чужую карту маршрута или дорогую гильдейскую печать.`
         : "Путь чист — значит цена запрятана в человеке или в обещании.",
@@ -123,6 +164,10 @@ async function runMockSessionGeneration(form: SessionFormBridge): Promise<Sessio
       userCtx.slice(0, 220) ||
       "Слух ведёт к сделке, которую можно принять дважды и уплатить один раз — если повезёт.",
   };
+  // Перед возвратом прогоняем через зачистку — на случай если userCtx
+  // содержал служебные «промптовые» осколки (после sanitizeSessionParagraph они
+  // должны уйти, но это вторая линия защиты для UI-превью).
+  const sessionBrief = sanitizeSessionBrief(rawBrief);
 
   const md = [
     `# ${title}`,

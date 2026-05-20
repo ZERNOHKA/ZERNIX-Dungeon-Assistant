@@ -1,5 +1,5 @@
 import { Dice5, Info, Loader2, Sparkle } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { LootItem } from "../../types/content";
 import type { AppContentJson } from "../../types/content";
 import type { EncounterThreat55 } from "../../lib/dnd55Threat";
@@ -71,8 +71,13 @@ export function LootPickerScreen({
   const [environment, setEnvironment] = useState<string>("forest");
   const [selectedTypeIds, setSelectedTypeIds] = useState<string[]>(() => [...typeIdsAll]);
   const [magicOnly, setMagicOnly] = useState(false);
-  const [goldLimit, setGoldLimit] = useState("500");
+  const [goldLimit, setGoldLimit] = useState(() => {
+    // Level-aware default gold budget (Lv5, medium, 4 players → 260gp)
+    return String(65 * 4);
+  });
   const [ipcBusy, setIpcBusy] = useState(false);
+  /** Ref-флаг: защита от двойного IPC-запроса до перерендера кнопки. */
+  const ipcInFlightRef = useRef(false);
 
   const hasElectron = typeof window !== "undefined" && Boolean(window.electronAPI);
 
@@ -148,6 +153,20 @@ export function LootPickerScreen({
     setDifficulty(defaultThreatForPartyLevel(partyLevel));
   }, [partyLevel]);
 
+  /** Автоматически пересчитывает goldLimit при смене уровня / сложности / числа игроков. */
+  useEffect(() => {
+    const PER_PLAYER: Record<string, number[]> = {
+      low:      [8,  10, 15, 20, 35, 50, 75, 100, 130, 160, 200, 260, 320, 400, 480, 580, 680, 800, 950, 1100],
+      moderate: [12, 18, 28, 40, 65, 90, 140, 190, 260, 340, 420, 540, 680, 820, 980, 1200, 1450, 1700, 2050, 2450],
+      high:     [20, 32, 50, 80, 130, 200, 300, 420, 560, 720, 900, 1200, 1600, 2000, 2600, 3200, 4000, 5000, 6500, 8000],
+      deadly:   [30, 50, 80, 130, 200, 320, 500, 700, 940, 1200, 1500, 2100, 2900, 3600, 4600, 5800, 7200, 9000, 12000, 16000],
+    };
+    const lv = Math.max(1, Math.min(20, partyLevel));
+    const cnt = Math.max(1, Math.min(8, playerCount));
+    const budget = (PER_PLAYER[difficulty]?.[lv - 1] ?? 100) * cnt;
+    setGoldLimit(String(budget));
+  }, [partyLevel, difficulty, playerCount]);
+
   const rollSqlite = useCallback(async () => {
     if (!window.electronAPI || !onGenerateMarkdown) {
       return;
@@ -155,6 +174,10 @@ export function LootPickerScreen({
     if (selectedTypeIds.length === 0) {
       return;
     }
+    // Двойная защита от спама: ref срабатывает до перерендера кнопки
+    if (ipcInFlightRef.current) return;
+    ipcInFlightRef.current = true;
+
     const gold = Number(String(goldLimit).replace(",", "."));
     const categories = dbCategoriesForLootTypes(selectedTypeIds, typeIdsAll);
     const chestParsed =
@@ -175,6 +198,7 @@ export function LootPickerScreen({
       chestCount: chestParsed,
     };
     if (!Number.isFinite(gold) || gold <= 0) {
+      ipcInFlightRef.current = false;
       onGenerateMarkdown(
         `_Ошибка:_ Укажите **положительный** лимит золота (gp) в поле «Лимит золота». Сейчас значение не распознано как число больше нуля.`,
         sqliteCtxBase,
@@ -204,6 +228,7 @@ export function LootPickerScreen({
         needsRepair: Boolean(result.needsRepair),
       });
     } finally {
+      ipcInFlightRef.current = false;
       setIpcBusy(false);
     }
   }, [

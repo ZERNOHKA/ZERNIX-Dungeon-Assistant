@@ -15,5 +15,8 @@ zernix-dnd/
 dist_electron_client/
 *.blockmap
 
-# Offline loot toolkit (SQLite/build); браузерный MVP использует src/database.mjs
+# Offline loot toolkit (SQLite/build); browser MVP uses src/services/mocks/database.mjs
 tools/
+
+# Аудит-снимки и временные артефакты smoke-тестов
+tmp/

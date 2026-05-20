@@ -1,0 +1,956 @@
+/*
+ * ZERNIX Home Dashboard Styles (Stage 2 extraction)
+ * Source: src/ZernixTheme.css
+ * Component: src/zernix/views/home/HomeDashboard.tsx
+ * NOTE: Duplicated in ZernixTheme.css until wiring.
+ *       .zx-block / .zx-cta are also used by loot, npc, prep views.
+ */
+
+/* --- HOME SCREEN REDESIGN (Task 3 / May 2026) — legacy quick-start, session, characters, world --- */
+/* ════════════════════════════════════════════════════════════════
+   HOME SCREEN REDESIGN — dark fantasy premium (Task 3 / May 2026)
+   ════════════════════════════════════════════════════════════════ */
+
+/* ── Quick Start section ── */
+.zx-qs-section {
+  margin-bottom: 18px;
+}
+
+.zx-qs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  gap: 14px;
+}
+
+.zx-qs-heading {
+  font-family: var(--zx-font-display);
+  font-size: 11px;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: rgba(245, 230, 184, 0.55);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.zx-qs-heading::after {
+  content: "";
+  display: block;
+  width: 48px;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(212, 169, 58, 0.38), transparent);
+}
+
+/* Table Mode launch button */
+.zx-table-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(212, 169, 58, 0.42);
+  background: linear-gradient(180deg, rgba(22, 26, 36, 0.88), rgba(10, 12, 18, 0.82));
+  color: var(--zx-gold-mid);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow:
+    0 0 18px rgba(212, 169, 58, 0.09),
+    0 4px 14px rgba(0, 0, 0, 0.35);
+  transition:
+    border-color 0.28s var(--zx-ease-out),
+    box-shadow 0.28s var(--zx-ease-out),
+    transform 0.3s var(--zx-ease-out);
+}
+
+.zx-table-mode-btn:hover {
+  border-color: rgba(241, 208, 122, 0.62);
+  box-shadow:
+    0 0 28px rgba(212, 169, 58, 0.22),
+    0 6px 20px rgba(0, 0, 0, 0.45);
+  transform: translateY(-2px);
+}
+
+.zx-table-mode-btn:active {
+  transform: scale(0.98);
+}
+
+/* 4-column Quick Start grid */
+.zx-qs-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+@media (max-width: 1280px) {
+  .zx-qs-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
+  .zx-qs-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Individual Quick Start card */
+.zx-qs-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 13px;
+  padding: 28px 16px 24px;
+  min-height: 148px;
+  border-radius: var(--zx-radius);
+  border: 1px solid rgba(212, 169, 58, 0.28);
+  background:
+    radial-gradient(ellipse 80% 55% at 50% 0%, rgba(212, 169, 58, 0.07), transparent 55%),
+    linear-gradient(180deg, rgba(16, 20, 30, 0.94) 0%, rgba(7, 9, 14, 0.96) 100%);
+  color: var(--zx-text);
+  cursor: pointer;
+  text-align: center;
+  box-shadow:
+    0 4px 22px rgba(0, 0, 0, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  transform: translateY(0);
+  transition:
+    border-color 0.32s var(--zx-ease-out),
+    box-shadow 0.32s var(--zx-ease-out),
+    transform 0.38s var(--zx-ease-out),
+    background 0.32s var(--zx-ease-out);
+  position: relative;
+  overflow: hidden;
+}
+
+.zx-qs-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(ellipse 60% 45% at 50% 0%, rgba(212, 169, 58, 0.13), transparent 55%);
+  opacity: 0;
+  transition: opacity 0.32s var(--zx-ease-out);
+  pointer-events: none;
+}
+
+.zx-qs-card:hover {
+  border-color: rgba(241, 208, 122, 0.58);
+  box-shadow:
+    0 0 36px rgba(212, 169, 58, 0.2),
+    0 14px 34px rgba(0, 0, 0, 0.48),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transform: translateY(-6px);
+}
+
+.zx-qs-card:hover::before {
+  opacity: 1;
+}
+
+.zx-qs-card:active {
+  transform: translateY(-2px) scale(0.99);
+  transition-duration: 0.12s;
+}
+
+/* Icon container */
+.zx-qs-card__icon-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  border: 1px solid rgba(212, 169, 58, 0.38);
+  background:
+    radial-gradient(circle at 35% 30%, rgba(212, 169, 58, 0.18), transparent 60%),
+    linear-gradient(145deg, rgba(24, 28, 40, 0.95), rgba(8, 10, 14, 0.98));
+  box-shadow:
+    0 0 22px rgba(212, 169, 58, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transition: box-shadow 0.28s var(--zx-ease-out);
+  overflow: hidden;
+}
+
+/* Слот под пользовательскую иконку поверх lucide-иконки.
+   Если соответствующая CSS-переменная пустая (none) — слой невидим. */
+.zx-qs-card__icon-slot {
+  position: absolute;
+  inset: 4px;
+  border-radius: 10px;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  pointer-events: none;
+  transition: filter 0.28s var(--zx-ease-out);
+}
+
+.zx-qs-card--loot .zx-qs-card__icon-slot { background-image: var(--zx-qs-icon-loot); }
+.zx-qs-card--npc .zx-qs-card__icon-slot { background-image: var(--zx-qs-icon-npc); }
+.zx-qs-card--prep .zx-qs-card__icon-slot { background-image: var(--zx-qs-icon-prep); }
+.zx-qs-card--conditions .zx-qs-card__icon-slot { background-image: var(--zx-qs-icon-conditions); }
+
+.zx-qs-card:hover .zx-qs-card__icon-slot {
+  filter: drop-shadow(0 0 14px rgba(241, 208, 122, 0.5));
+}
+
+.zx-qs-card:hover .zx-qs-card__icon-wrap {
+  box-shadow:
+    0 0 32px rgba(212, 169, 58, 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.zx-qs-card__icon {
+  width: 26px;
+  height: 26px;
+  color: var(--zx-gold-mid);
+  filter: drop-shadow(0 0 8px rgba(212, 169, 58, 0.3));
+  transition: filter 0.28s var(--zx-ease-out), color 0.28s;
+}
+
+.zx-qs-card:hover .zx-qs-card__icon {
+  color: var(--zx-gold-bright);
+  filter: drop-shadow(0 0 14px rgba(241, 208, 122, 0.5));
+}
+
+.zx-qs-card__title {
+  font-family: var(--zx-font-display);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--zx-gold-bright);
+  line-height: 1.25;
+  text-shadow: 0 0 22px rgba(212, 169, 58, 0.22);
+}
+
+.zx-qs-card__sub {
+  font-size: 11px;
+  color: var(--zx-text-dim);
+  line-height: 1.38;
+  max-width: 18ch;
+}
+
+/* ── Preset chips bar ── */
+.zx-presets-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-bottom: 20px;
+  align-items: center;
+}
+
+/* ── Session panel ── */
+.zx-session-title {
+  font-family: var(--zx-font-display);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--zx-gold-bright);
+  text-shadow:
+    0 0 32px rgba(212, 169, 58, 0.22),
+    0 2px 18px rgba(0, 0, 0, 0.65);
+  margin-top: 4px;
+  line-height: 1.25;
+}
+
+.zx-section-sublabel {
+  font-family: var(--zx-font-display);
+  font-size: 10px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: rgba(245, 230, 184, 0.48);
+  margin: 18px 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.zx-section-sublabel::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(212, 169, 58, 0.28), transparent);
+}
+
+/* ── Character list ── */
+.zx-char-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.zx-char-row {
+  display: grid;
+  grid-template-columns: 42px 1fr 110px;
+  gap: 12px;
+  align-items: center;
+  padding: 9px 0;
+  border-bottom: 1px solid rgba(212, 169, 58, 0.07);
+}
+
+.zx-char-row:last-child {
+  border-bottom: none;
+}
+
+.zx-char-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 11px;
+  border: 1px solid rgba(212, 169, 58, 0.35);
+  background:
+    radial-gradient(circle at 32% 28%, rgba(212, 169, 58, 0.18), transparent 55%),
+    linear-gradient(145deg, rgba(30, 24, 16, 0.96), rgba(8, 9, 12, 0.98));
+  box-shadow: inset 0 0 14px rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--zx-font-display);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--zx-gold-mid);
+  text-shadow: 0 0 12px rgba(212, 169, 58, 0.35);
+  flex-shrink: 0;
+}
+
+.zx-char-info {
+  min-width: 0;
+}
+
+.zx-char-name {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--zx-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.zx-char-sub {
+  font-size: 11px;
+  color: var(--zx-text-dim);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.zx-char-hp {
+  min-width: 0;
+}
+
+/* ── World state compact ── */
+.zx-world-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.zx-world-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.zx-world-grid .zernix-input {
+  font-size: 12px;
+  padding: 7px 11px;
+}
+
+/* ── hp bar refinements for character rows ── */
+.zx-char-row .zernix-hp-track {
+  height: 5px;
+  margin-bottom: 3px;
+}
+
+.zx-char-row .zernix-hp-label {
+  font-size: 10px;
+  text-align: right;
+  color: var(--zx-text-dim);
+  margin-top: 0;
+}
+
+/* --- Home list-item button hover --- */
+/* ── List item button hover ── */
+button.zernix-list-item {
+  width: 100%;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  border-radius: 8px;
+  padding: 9px 6px;
+  margin: 0 -6px;
+  box-sizing: border-box;
+  transition: background 0.22s ease;
+}
+
+button.zernix-list-item:hover {
+  background: rgba(212, 169, 58, 0.06);
+}
+
+/* --- Legacy home layout cleanup --- */
+/* ── Quick grid solo (conditions only cell) — hide now that it's in QS ── */
+.zernix-quick-grid--solo {
+  display: none;
+}
+
+/* ── dashboard-row left column taller minimum ── */
+.zernix-session-panel {
+  min-height: 340px;
+}
+
+/* --- App shell — home-only layout modifiers --- */
+/* ════════════════════════════════════════════════════════════════
+   HOME v2 — DM WORKSTATION (full-width, single column, cinematic)
+   ════════════════════════════════════════════════════════════════ */
+
+/* ── Shell: home-only — collapse 3-col grid to 2-col (no right aside) ── */
+.zernix-app-shell.zernix-app-shell--home {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  grid-template-columns: 280px minmax(0, 1fr);
+}
+
+@media (max-width: 1280px) {
+  .zernix-app-shell.zernix-app-shell--home {
+    grid-template-columns: 260px minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 860px) {
+  .zernix-app-shell.zernix-app-shell--home {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* On home, give main region a wider, denser canvas */
+.zernix-app-shell--home .zernix-region-main {
+  padding: 24px 12px 56px 28px;
+  max-width: none;
+}
+
+/* On home, soften topbar (hero owns the title) */
+.zernix-app-shell--home .zernix-topbar {
+  margin-bottom: 22px;
+}
+
+.zernix-app-shell--home .zernix-topbar-center {
+  opacity: 0.55;
+}
+
+.zernix-app-shell--home .zernix-page-title {
+  font-size: clamp(0.85rem, 1.05vw, 1rem);
+  letter-spacing: 0.42em;
+}
+
+.zernix-app-shell--home .zernix-tagline {
+  font-size: 9px;
+  letter-spacing: 0.42em;
+  margin-top: 6px;
+}
+
+/* --- HOME v2 container + cinematic hero --- */
+/* ── HOME container — vertical rhythm ── */
+.zx-home {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+  animation: zernix-fade-in 0.7s var(--zx-ease-out) both;
+}
+
+/* ╔═══════════════════════════════════════════════════════════════╗
+   ║  HERO — cinematic anchor                                      ║
+   ╚═══════════════════════════════════════════════════════════════╝ */
+.zx-hero {
+  position: relative;
+  isolation: isolate;
+  min-height: 420px;
+  border-radius: 0;
+  overflow: visible;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 28px 8px 36px 4px;
+  display: flex;
+  align-items: center;
+}
+
+.zx-hero::before {
+  content: none;
+}
+
+/* Soft ambient halo behind text — NOT a card border.
+   A wide diffuse glow only on the left, so the hero blends
+   into the global dragon background instead of forming a panel. */
+.zx-hero__bg {
+  position: absolute;
+  inset: -40px -8% -40px -10%;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 48% 78% at 18% 52%,
+      rgba(6, 9, 16, 0.62) 0%,
+      rgba(6, 9, 16, 0.35) 38%,
+      rgba(6, 9, 16, 0.10) 62%,
+      transparent 82%),
+    radial-gradient(ellipse 36% 60% at 12% 56%,
+      rgba(0, 0, 0, 0.45) 0%,
+      transparent 70%);
+  z-index: 0;
+  filter: blur(8px);
+  animation: zx-hero-breathe 38s var(--zx-ease-soft) infinite alternate;
+}
+
+@keyframes zx-hero-breathe {
+  0% { transform: scale(1); opacity: 0.92; }
+  100% { transform: scale(1.04); opacity: 1; }
+}
+
+/* Subtle ambient warmth on the right where the dragon's silhouette sits.
+   No box edges — just a gentle gold haze and a long-range left-fade. */
+.zx-hero__vignette {
+  position: absolute;
+  inset: -60px -12% -40px -6%;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 30% 55% at 8% 50%, rgba(0, 0, 0, 0.55), transparent 70%),
+    radial-gradient(ellipse 42% 62% at 72% 28%, rgba(212, 169, 58, 0.06), transparent 60%),
+    radial-gradient(ellipse 55% 70% at 90% 60%, rgba(58, 96, 140, 0.05), transparent 65%);
+  mix-blend-mode: normal;
+  filter: blur(2px);
+}
+
+.zx-hero__embers {
+  position: absolute;
+  inset: -20px;
+  z-index: 0;
+  pointer-events: none;
+  background-image: radial-gradient(circle, rgba(241, 208, 122, 0.32) 0.65px, transparent 1.8px);
+  background-size: 130px 150px;
+  opacity: 0.14;
+  mix-blend-mode: screen;
+  animation: zx-hero-embers 110s linear infinite;
+  mask-image: radial-gradient(ellipse 70% 80% at 50% 50%, #000 0%, rgba(0,0,0,0.55) 60%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse 70% 80% at 50% 50%, #000 0%, rgba(0,0,0,0.55) 60%, transparent 100%);
+}
+
+@keyframes zx-hero-embers {
+  to { background-position: 130px 220px; }
+}
+
+.zx-hero__content {
+  position: relative;
+  z-index: 1;
+  max-width: 640px;
+  display: flex;
+  flex-direction: column;
+}
+
+.zx-hero__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 14px 5px 12px;
+  align-self: flex-start;
+  border-radius: 999px;
+  border: 1px solid rgba(212, 169, 58, 0.38);
+  background: rgba(8, 10, 16, 0.65);
+  color: var(--zx-gold-mid);
+  font-family: var(--zx-font-body);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  box-shadow: 0 0 18px rgba(212, 169, 58, 0.1);
+  margin-bottom: 22px;
+}
+
+.zx-hero__eyebrow-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--zx-gold-bright);
+  box-shadow: 0 0 12px rgba(241, 208, 122, 0.7);
+  animation: zx-hero-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes zx-hero-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(0.85); }
+}
+
+.zx-hero__title {
+  margin: 0 0 16px;
+  font-family: var(--zx-font-display);
+  font-weight: 600;
+  font-size: clamp(2rem, 3.6vw, 2.85rem);
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+  color: rgba(245, 230, 184, 0.98);
+  text-shadow:
+    0 0 64px rgba(212, 169, 58, 0.28),
+    0 0 24px rgba(212, 169, 58, 0.16),
+    0 6px 24px rgba(0, 0, 0, 0.95),
+    0 2px 6px rgba(0, 0, 0, 0.85);
+}
+
+.zx-hero__title-accent {
+  background: linear-gradient(180deg, #f5d878 0%, #e0b84d 55%, #c9952a 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter:
+    drop-shadow(0 0 28px rgba(212, 169, 58, 0.55))
+    drop-shadow(0 0 8px rgba(241, 208, 122, 0.35));
+}
+
+.zx-hero__lead {
+  margin: 0 0 22px;
+  max-width: 48ch;
+  font-size: 14px;
+  line-height: 1.65;
+  color: rgba(245, 230, 184, 0.78);
+  font-family: var(--zx-font-body);
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.85);
+}
+
+.zx-hero__divider {
+  position: relative;
+  height: 1px;
+  width: 220px;
+  margin: 0 0 24px;
+  background: linear-gradient(90deg, transparent, rgba(212, 169, 58, 0.5), transparent);
+}
+
+.zx-hero__divider-rune {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) rotate(45deg);
+  width: 8px;
+  height: 8px;
+  background: var(--zx-gold-bright);
+  box-shadow:
+    0 0 14px rgba(241, 208, 122, 0.65),
+    0 0 28px rgba(212, 169, 58, 0.35);
+}
+
+.zx-hero__cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.zx-hero__presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 8px;
+}
+
+.zx-hero__preset {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 26px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(212, 169, 58, 0.28);
+  background: rgba(8, 10, 16, 0.6);
+  color: rgba(245, 230, 184, 0.78);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition:
+    border-color 0.25s var(--zx-ease-out),
+    color 0.25s var(--zx-ease-out),
+    background 0.25s var(--zx-ease-out),
+    transform 0.25s var(--zx-ease-out);
+}
+
+.zx-hero__preset:hover {
+  border-color: rgba(241, 208, 122, 0.52);
+  color: var(--zx-gold-bright);
+  background: rgba(212, 169, 58, 0.07);
+  transform: translateY(-1px);
+}
+
+.zx-hero__preset:active { transform: scale(0.97); }
+
+@media (max-width: 920px) {
+  .zx-hero {
+    padding: 24px 8px 32px;
+    min-height: 320px;
+  }
+}
+
+/* --- Premium CTA buttons + section block headings (HOME v2 primitives) --- */
+/* ── Premium CTA buttons ── */
+.zx-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 46px;
+  padding: 0 22px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-family: var(--zx-font-body);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  transition:
+    transform 0.32s var(--zx-ease-out),
+    box-shadow 0.32s var(--zx-ease-out),
+    border-color 0.32s var(--zx-ease-out),
+    filter 0.28s var(--zx-ease-out);
+}
+
+.zx-cta--sm {
+  min-height: 36px;
+  padding: 0 16px;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+}
+
+.zx-cta--gold {
+  border: 1px solid rgba(241, 208, 122, 0.68);
+  background:
+    radial-gradient(ellipse 80% 100% at 50% 0%, rgba(241, 208, 122, 0.28), transparent 60%),
+    linear-gradient(180deg, rgba(64, 48, 22, 0.95), rgba(20, 14, 6, 0.92));
+  color: var(--zx-gold-bright);
+  text-shadow: 0 0 16px rgba(212, 169, 58, 0.42);
+  box-shadow:
+    0 0 28px rgba(212, 169, 58, 0.18),
+    0 12px 36px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.zx-cta--gold:hover {
+  transform: translateY(-3px);
+  border-color: rgba(241, 208, 122, 0.92);
+  box-shadow:
+    0 0 44px rgba(212, 169, 58, 0.32),
+    0 18px 44px rgba(0, 0, 0, 0.65),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  filter: brightness(1.08);
+}
+
+.zx-cta--ghost {
+  border: 1px solid rgba(212, 169, 58, 0.34);
+  background: rgba(8, 10, 16, 0.65);
+  color: var(--zx-text);
+  box-shadow:
+    0 8px 22px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.zx-cta--ghost:hover {
+  transform: translateY(-3px);
+  border-color: rgba(241, 208, 122, 0.6);
+  color: var(--zx-gold-bright);
+  background: rgba(20, 24, 34, 0.78);
+  box-shadow:
+    0 0 32px rgba(212, 169, 58, 0.18),
+    0 14px 32px rgba(0, 0, 0, 0.5);
+}
+
+.zx-cta:active { transform: translateY(-1px) scale(0.99); transition-duration: 0.12s; }
+
+/* ╔═══════════════════════════════════════════════════════════════╗
+   ║  BLOCK — generic section wrapper with serif heading + rules   ║
+   ╚═══════════════════════════════════════════════════════════════╝ */
+.zx-block {
+  position: relative;
+}
+
+.zx-block-head {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+
+.zx-block-head__rule {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(212, 169, 58, 0.32), transparent);
+}
+
+.zx-block-head__rule:first-child {
+  max-width: 80px;
+}
+
+.zx-block-head__title {
+  margin: 0;
+  font-family: var(--zx-font-display);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+  color: var(--zx-gold-mid);
+  text-shadow: 0 0 24px rgba(212, 169, 58, 0.22);
+  white-space: nowrap;
+}
+
+/* --- Quick-start cards — home-scoped overrides --- */
+/* ╔═══════════════════════════════════════════════════════════════╗
+   ║  QUICK-START CARDS (override v1 styles, refined and tighter)  ║
+   ╚═══════════════════════════════════════════════════════════════╝ */
+.zx-home .zx-qs-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.zx-home .zx-qs-card {
+  min-height: 132px;
+  padding: 22px 18px 20px;
+  gap: 10px;
+}
+
+.zx-home .zx-qs-card__icon-wrap {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+}
+
+.zx-home .zx-qs-card__icon {
+  width: 22px;
+  height: 22px;
+}
+
+.zx-home .zx-qs-card__title {
+  font-size: 12px;
+  letter-spacing: 0.1em;
+}
+
+.zx-home .zx-qs-card__sub {
+  font-size: 10.5px;
+  line-height: 1.42;
+  max-width: 22ch;
+}
+
+/* --- Notes/favorites empty states (home journal) --- */
+.zx-dm__empty {
+  margin: 8px 0 4px;
+  padding: 14px 16px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--zx-text-dim);
+  border-radius: 10px;
+  border: 1px dashed rgba(212, 169, 58, 0.22);
+  background: rgba(8, 10, 16, 0.45);
+}
+
+.zx-dm__empty--rail {
+  margin: 6px 0 0;
+  padding: 12px 14px;
+  font-size: 12px;
+}
+
+/* --- Notes + favorites split + legacy quick-grid hide --- */
+/* ╔═══════════════════════════════════════════════════════════════╗
+   ║  NOTES + FAVORITES — compact split                            ║
+   ╚═══════════════════════════════════════════════════════════════╝ */
+.zx-nb {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+@media (max-width: 900px) {
+  .zx-nb { grid-template-columns: 1fr; }
+}
+
+.zx-nb__panel {
+  border-radius: 16px;
+  padding: 18px 20px 16px;
+  border: 1px solid rgba(212, 169, 58, 0.22);
+  background:
+    radial-gradient(ellipse 50% 60% at 0% 0%, rgba(212, 169, 58, 0.04), transparent 60%),
+    linear-gradient(180deg, rgba(13, 17, 26, 0.92) 0%, rgba(7, 9, 14, 0.95) 100%);
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+.zx-nb__head {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(212, 169, 58, 0.12);
+  font-family: var(--zx-font-display);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--zx-gold-mid);
+  width: 100%;
+}
+
+.zx-nb__head svg {
+  color: var(--zx-gold-bright);
+  filter: drop-shadow(0 0 8px rgba(212, 169, 58, 0.3));
+}
+
+.zx-nb__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.zx-nb__row {
+  display: grid;
+  grid-template-columns: 1fr auto 16px;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 9px 8px;
+  margin: 0 -8px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  color: inherit;
+  text-align: left;
+  transition: background 0.22s ease;
+}
+
+.zx-nb__row:hover {
+  background: rgba(212, 169, 58, 0.06);
+}
+
+.zx-nb__row-title {
+  font-size: 12.5px;
+  color: var(--zx-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.35;
+}
+
+.zx-nb__row-meta {
+  font-size: 10.5px;
+  color: var(--zx-text-dim);
+  white-space: nowrap;
+}
+
+.zx-nb__row-chevron {
+  color: rgba(212, 169, 58, 0.4);
+  flex-shrink: 0;
+}
+
+/* hide legacy single-column quick grid that the previous layout used */
+.zx-home .zernix-quick-grid--solo { display: none; }

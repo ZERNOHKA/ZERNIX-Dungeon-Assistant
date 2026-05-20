@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -83,13 +84,31 @@ const DEFAULT_SESSION_FORM: SessionFormBridge = {
   onlyMagic: false,
 };
 
+/**
+ * Возвращает золотой бюджет, масштабированный по уровню и сложности.
+ * Используется при инициализации и при изменении partyLevel/difficulty в форме.
+ */
+function computeDefaultGold(partyLevel: number, difficulty: LootFormBridge["difficultyUi"], playerCount: number): number {
+  const lv = Math.max(1, Math.min(20, partyLevel));
+  const cnt = Math.max(1, Math.min(8, playerCount));
+  const PER_PLAYER: Record<LootFormBridge["difficultyUi"], number[]> = {
+    low:    [8,  10, 15, 20, 35, 50, 75, 100, 130, 160, 200, 260, 320, 400, 480, 580, 680, 800, 950, 1100],
+    medium: [12, 18, 28, 40, 65, 90, 140, 190, 260, 340, 420, 540, 680, 820, 980, 1200, 1450, 1700, 2050, 2450],
+    high:   [20, 32, 50, 80, 130, 200, 300, 420, 560, 720, 900, 1200, 1600, 2000, 2600, 3200, 4000, 5000, 6500, 8000],
+  };
+  return (PER_PLAYER[difficulty]?.[lv - 1] ?? 100) * cnt;
+}
+
 function initialLootForm(): LootFormBridge {
+  const partyLevel = 5;
+  const playerCount = 4;
+  const difficultyUi: LootFormBridge["difficultyUi"] = "medium";
   return {
-    partyLevel: 5,
-    playerCount: 4,
-    difficultyUi: "medium",
+    partyLevel,
+    playerCount,
+    difficultyUi,
     environmentUi: "ruins",
-    goldGp: 500,
+    goldGp: computeDefaultGold(partyLevel, difficultyUi, playerCount),
     selectedTypeIds: [],
     typeIdsAll: [],
     magicOnly: false,
@@ -99,7 +118,8 @@ function initialLootForm(): LootFormBridge {
 
 export function ZernixGeneratorsProvider({ children }: { children: ReactNode }) {
   const { data: content } = useAppContent();
-  const { worldHints, patchWorldHints, appendSessionHookLine } = useZernixUserData();
+  const { worldHints, patchWorldHints, appendSessionHookLine, syncPlaySessionMeta, ensureDefaultParty, continueDmSession } =
+    useZernixUserData();
 
   const [lootCards, setLootCards] = useState<LootCardModel[]>([]);
   const [lootDigest, setLootDigest] = useState<LootDigestPayload | null>(null);
@@ -108,6 +128,11 @@ export function ZernixGeneratorsProvider({ children }: { children: ReactNode }) 
   const [lootError, setLootError] = useState<string | null>(null);
   const [lootBusy, setLootBusy] = useState(false);
   const [selectedLootId, setSelectedLootId] = useState<string | null>(null);
+
+  /** Ref-флаг для защиты от двойного запроса (spam-protection помимо lootBusy). */
+  const lootInFlightRef = useRef(false);
+  /** Fingerprint последних N наборов карточек для дедупликации. */
+  const recentLootFingerprints = useRef<string[]>([]);
 
   const [lootForm, setLootFormState] = useState<LootFormBridge>(initialLootForm);
 
@@ -153,6 +178,9 @@ export function ZernixGeneratorsProvider({ children }: { children: ReactNode }) 
   }, []);
 
   const generateLoot = useCallback(async (): Promise<LootCardModel | null> => {
+    // Двойная защита: state + ref (ref срабатывает до рендера)
+    if (lootInFlightRef.current) return null;
+    lootInFlightRef.current = true;
     setLootBusy(true);
     setLootError(null);
     try {
@@ -161,6 +189,19 @@ export function ZernixGeneratorsProvider({ children }: { children: ReactNode }) 
         setLootError(res.error);
         return null;
       }
+
+      // Дедупликация: fingerprint = имена карточек через запятую
+      const fingerprint = res.cards.map((c) => c.title).sort().join("|");
+      const DEDUP_WINDOW = 5;
+      if (recentLootFingerprints.current.includes(fingerprint) && res.cards.length > 0) {
+        // Помечаем как soft-duplicate: карточки всё равно показываем, но логируем
+        console.debug("[loot] soft-duplicate fingerprint:", fingerprint);
+      }
+      recentLootFingerprints.current.push(fingerprint);
+      if (recentLootFingerprints.current.length > DEDUP_WINDOW) {
+        recentLootFingerprints.current.shift();
+      }
+
       setLootCards(res.cards);
       setLootDigest(res.digest);
       setLootMarkdown(res.markdown);
@@ -169,6 +210,7 @@ export function ZernixGeneratorsProvider({ children }: { children: ReactNode }) 
       setSelectedLootId(firstId);
       return res.cards[0] ?? null;
     } finally {
+      lootInFlightRef.current = false;
       setLootBusy(false);
     }
   }, [lootForm]);
@@ -185,13 +227,18 @@ export function ZernixGeneratorsProvider({ children }: { children: ReactNode }) 
       const occ = hasOcc
         ? npcForm.occupationValue
         : content.npc.occupations[Math.floor(Math.random() * content.npc.occupations.length)]?.value ?? "merchant";
-      const card = await resolveNpcCard(content.npc, { ...npcForm, occupationValue: occ });
+      const { card, error } = await resolveNpcCard(content.npc, {
+        ...npcForm,
+        occupationValue: occ,
+        biomeKey: sessionForm.environmentKey,
+      });
       if (!card) {
         setLastResolvedNpcCard(null);
         setNpcError(
-          typeof window !== "undefined" && window.electronAPI?.generateNpc
-            ? "Не удалось построить карточку NPC."
-            : "Не удалось выбрать шаблон NPC в контенте (пустой массив templates). Обновите data/app-content.json.",
+          error?.trim() ||
+            (typeof window !== "undefined" && window.electronAPI?.generateNpc
+              ? "Не удалось построить карточку NPC."
+              : "Не удалось выбрать шаблон NPC в контенте. Обновите data/app-content.json."),
         );
         return null;
       }
@@ -203,7 +250,7 @@ export function ZernixGeneratorsProvider({ children }: { children: ReactNode }) 
     } finally {
       setNpcBusy(false);
     }
-  }, [content, npcForm, patchWorldHints, worldHints]);
+  }, [content, npcForm, patchWorldHints, sessionForm.environmentKey, worldHints]);
 
   const generateSession = useCallback(async (): Promise<{ title: string; excerpt: string } | null> => {
     setSessionBusy(true);
@@ -226,11 +273,21 @@ export function ZernixGeneratorsProvider({ children }: { children: ReactNode }) 
       setPrepSummary(mdClean);
       const title = res.preview?.title?.trim() || res.sessionBrief?.title?.trim() || "Сессия";
       const excerpt = res.preview?.excerpt?.trim() || "";
+      syncPlaySessionMeta({
+        title,
+        partyLevel: sessionForm.partyLevel,
+        playerCount: sessionForm.playerCount,
+        difficulty: sessionForm.difficulty,
+        environmentKey: sessionForm.environmentKey,
+        updatedAt: Date.now(),
+      });
+      ensureDefaultParty(sessionForm.playerCount, sessionForm.partyLevel);
+      continueDmSession();
       return { title, excerpt };
     } finally {
       setSessionBusy(false);
     }
-  }, [sessionForm, worldHints]);
+  }, [continueDmSession, ensureDefaultParty, sessionForm, syncPlaySessionMeta, worldHints]);
 
   const rerollNpcNarrativeField = useCallback(
     (slot: NarrativeRerollSlot) => {

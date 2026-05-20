@@ -34,8 +34,9 @@ function localEnginesPresent() {
   if (IS_ZERNIX_CLIENT_ONLY) return false;
   const lootCorePath = path.join(__dirname, "loot-core.mjs");
   const npcPath = path.join(__dirname, "..", "npc-engine.mjs");
+  const toolsLoot = path.join(__dirname, "..", "tools", "dnd-loot-sqlite", "generate-loot.mjs");
   try {
-    return fs.existsSync(lootCorePath) && fs.existsSync(npcPath);
+    return fs.existsSync(lootCorePath) && fs.existsSync(npcPath) && fs.existsSync(toolsLoot);
   } catch {
     return false;
   }
@@ -193,56 +194,57 @@ async function remoteFetch(pathSuffix, payload) {
   return json;
 }
 
+/** Локальные движки в приоритете; удалённый хост — только если движков нет или client-only. */
 async function dispatchLoot(payload) {
   if (IS_ZERNIX_CLIENT_ONLY) {
     return remoteDispatchClientOrError("/generate-loot", payload);
   }
+  if (localEnginesPresent()) {
+    return ipcLootResult(payload);
+  }
   if (getEffectiveRemoteUrl(networkSettings)) {
     return remoteFetch("/generate-loot", payload);
   }
-  if (clientRequiresRemoteOnly()) {
-    return { ok: false, error: CLIENT_REMOTE_REQUIRED_MSG };
-  }
-  return ipcLootResult(payload);
+  return { ok: false, error: CLIENT_REMOTE_REQUIRED_MSG };
 }
 
 async function dispatchSessionPrep(payload) {
   if (IS_ZERNIX_CLIENT_ONLY) {
     return remoteDispatchClientOrError("/api/v1/session-prep-generate", payload);
   }
+  if (localEnginesPresent()) {
+    return ipcSessionPrepResult(payload);
+  }
   if (getEffectiveRemoteUrl(networkSettings)) {
     return remoteFetch("/api/v1/session-prep-generate", payload);
   }
-  if (clientRequiresRemoteOnly()) {
-    return { ok: false, error: CLIENT_REMOTE_REQUIRED_MSG };
-  }
-  return ipcSessionPrepResult(payload);
+  return { ok: false, error: CLIENT_REMOTE_REQUIRED_MSG };
 }
 
 async function dispatchSceneLoot(payload) {
   if (IS_ZERNIX_CLIENT_ONLY) {
     return remoteDispatchClientOrError("/api/v1/scene-loot-generate", payload);
   }
+  if (localEnginesPresent()) {
+    return ipcSceneLootResult(payload);
+  }
   if (getEffectiveRemoteUrl(networkSettings)) {
     return remoteFetch("/api/v1/scene-loot-generate", payload);
   }
-  if (clientRequiresRemoteOnly()) {
-    return { ok: false, error: CLIENT_REMOTE_REQUIRED_MSG };
-  }
-  return ipcSceneLootResult(payload);
+  return { ok: false, error: CLIENT_REMOTE_REQUIRED_MSG };
 }
 
 async function dispatchNpc(payload) {
   if (IS_ZERNIX_CLIENT_ONLY) {
     return remoteDispatchClientOrError("/generate-npc", payload);
   }
+  if (localEnginesPresent()) {
+    return ipcNpcResult(payload);
+  }
   if (getEffectiveRemoteUrl(networkSettings)) {
     return remoteFetch("/generate-npc", payload);
   }
-  if (clientRequiresRemoteOnly()) {
-    return { ok: false, error: CLIENT_REMOTE_REQUIRED_MSG };
-  }
-  return ipcNpcResult(payload);
+  return { ok: false, error: CLIENT_REMOTE_REQUIRED_MSG };
 }
 
 async function stopApiServer() {
@@ -305,6 +307,7 @@ function createWindow() {
       preload: path.join(__dirname, "preload.cjs"),
       nodeIntegration: false,
       contextIsolation: true,
+      backgroundThrottling: false,
     },
   });
 
@@ -399,6 +402,9 @@ function registerIpcHandlers() {
     return dispatchNpc(payload);
   });
 }
+
+app.commandLine.appendSwitch("disable-renderer-backgrounding");
+app.commandLine.appendSwitch("enable-gpu-rasterization");
 
 app.whenReady().then(async () => {
   networkSettings = loadNetworkSettings(app);

@@ -12,6 +12,7 @@ import {
 import type { LootCardModel } from "../zernix/models";
 import type { NpcPreviewState } from "../zernix/models";
 import { npcFavoriteRefKey, npcJoinSegments } from "../zernix/npcUi";
+import { createDefaultParty, type PlaySessionMember, type PlaySessionMeta } from "../lib/playSession";
 import {
   DM_TIMELINE_CAP,
   defaultDmSession,
@@ -65,10 +66,14 @@ type ZernixUserDataContextValue = {
   recentNotes: (limit: number) => RecentNoteRow[];
   appendPrepDmNote: (line: string) => void;
 
-  startNewDmSession: () => void;
+  startNewDmSession: (opts?: Partial<PlaySessionMeta>) => void;
   continueDmSession: () => void;
   clearDmSession: () => void;
   ensurePlaySession: () => void;
+  syncPlaySessionMeta: (meta: PlaySessionMeta) => void;
+  ensureDefaultParty: (playerCount: number, partyLevel: number) => void;
+  patchPlaySessionMember: (id: string, patch: Partial<PlaySessionMember>) => void;
+  setPlaySessionTitle: (title: string) => void;
   pushDmTimeline: (e: Omit<DmTimelineEntry, "id" | "at">) => void;
   /** Крючок в prep:dm + строка в таймлайне (активирует сессию). */
   appendSessionHookLine: () => string;
@@ -298,10 +303,27 @@ export function ZernixUserDataProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const startNewDmSession = useCallback(() => {
+  const startNewDmSession = useCallback((opts?: Partial<PlaySessionMeta>) => {
+    const now = Date.now();
+    const partyLevel = opts?.partyLevel ?? 5;
+    const playerCount = opts?.playerCount ?? 4;
+    const meta: PlaySessionMeta = {
+      title: opts?.title?.trim() || "Новая сессия",
+      partyLevel,
+      playerCount,
+      difficulty: opts?.difficulty ?? "moderate",
+      environmentKey: opts?.environmentKey ?? "dungeon",
+      updatedAt: now,
+    };
     setBundle((prev) => ({
       ...prev,
-      dmSession: { active: true, startedAt: Date.now(), timeline: [] },
+      dmSession: {
+        active: true,
+        startedAt: now,
+        timeline: [],
+        meta,
+        party: createDefaultParty(playerCount, partyLevel),
+      },
     }));
   }, []);
 
@@ -329,13 +351,95 @@ export function ZernixUserDataProvider({ children }: { children: ReactNode }) {
   const ensurePlaySession = useCallback(() => {
     setBundle((prev) => {
       const dm0 = prev.dmSession ?? defaultDmSession();
-      if (dm0.active) return prev;
+      if (dm0.active && dm0.meta && dm0.party?.length) return prev;
+      const now = Date.now();
+      const meta =
+        dm0.meta ??
+        ({
+          title: "Сессия за столом",
+          partyLevel: 5,
+          playerCount: 4,
+          difficulty: "moderate",
+          environmentKey: "dungeon",
+          updatedAt: now,
+        } satisfies PlaySessionMeta);
+      const party =
+        dm0.party?.length ? dm0.party : createDefaultParty(meta.playerCount, meta.partyLevel);
+      return {
+        ...prev,
+        dmSession: {
+          ...dm0,
+          active: true,
+          startedAt: dm0.startedAt || now,
+          meta,
+          party,
+        },
+      };
+    });
+  }, []);
+
+  const syncPlaySessionMeta = useCallback((meta: PlaySessionMeta) => {
+    setBundle((prev) => {
+      const dm0 = prev.dmSession ?? defaultDmSession();
       return {
         ...prev,
         dmSession: {
           ...dm0,
           active: true,
           startedAt: dm0.startedAt || Date.now(),
+          meta: { ...meta, updatedAt: Date.now() },
+        },
+      };
+    });
+  }, []);
+
+  const ensureDefaultParty = useCallback((playerCount: number, partyLevel: number) => {
+    setBundle((prev) => {
+      const dm0 = prev.dmSession ?? defaultDmSession();
+      if (dm0.party?.length) return prev;
+      return {
+        ...prev,
+        dmSession: {
+          ...dm0,
+          party: createDefaultParty(playerCount, partyLevel),
+        },
+      };
+    });
+  }, []);
+
+  const patchPlaySessionMember = useCallback((id: string, patch: Partial<PlaySessionMember>) => {
+    setBundle((prev) => {
+      const dm0 = prev.dmSession ?? defaultDmSession();
+      const party = dm0.party;
+      if (!party?.length) return prev;
+      const next = party.map((m) => {
+        if (m.id !== id) return m;
+        const hpMax = patch.hpMax ?? m.hpMax;
+        let hpCurrent = patch.hpCurrent ?? m.hpCurrent;
+        hpCurrent = Math.max(0, Math.min(hpMax, hpCurrent));
+        return {
+          ...m,
+          ...patch,
+          hpMax,
+          hpCurrent,
+        };
+      });
+      return { ...prev, dmSession: { ...dm0, party: next } };
+    });
+  }, []);
+
+  const setPlaySessionTitle = useCallback((title: string) => {
+    const trimmed = title.trim();
+    if (!trimmed) return;
+    setBundle((prev) => {
+      const dm0 = prev.dmSession ?? defaultDmSession();
+      const meta = dm0.meta;
+      if (!meta) return prev;
+      return {
+        ...prev,
+        dmSession: {
+          ...dm0,
+          meta: { ...meta, title: trimmed, updatedAt: Date.now() },
         },
       };
     });
@@ -415,6 +519,10 @@ export function ZernixUserDataProvider({ children }: { children: ReactNode }) {
       continueDmSession,
       clearDmSession,
       ensurePlaySession,
+      syncPlaySessionMeta,
+      ensureDefaultParty,
+      patchPlaySessionMember,
+      setPlaySessionTitle,
       pushDmTimeline,
       appendSessionHookLine,
     }),
@@ -441,6 +549,10 @@ export function ZernixUserDataProvider({ children }: { children: ReactNode }) {
       setNoteBody,
       showToast,
       startNewDmSession,
+      syncPlaySessionMeta,
+      ensureDefaultParty,
+      patchPlaySessionMember,
+      setPlaySessionTitle,
       toastMessage,
       toggleLootFavorite,
       toggleNpcFavorite,

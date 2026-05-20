@@ -14,6 +14,8 @@
     "rebuild:sqlite": "node scripts/install-better-sqlite3-prebuild.cjs",
     "npc:test": "node npc-engine.mjs",
     "electron": "npm run build && electron .",
+    "verify:electron-db": "electron scripts/verify-electron-db.mjs",
+    "smoke:session-biomes": "electron scripts/smoke-session-biomes.mjs",
     "dist": "npm run build && node scripts/clean-electron-main-out.cjs && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win portable",
     "dist:protected": "npm run build && node scripts/obfuscate-for-pack.mjs && node scripts/clean-electron-main-out.cjs && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win portable && node scripts/write-dist-integrity.mjs",
     "dist:win-setup": "npm run build && node scripts/clean-electron-main-out.cjs && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win nsis",
@@ -55,10 +57,19 @@
       "electron/**/*",
       "npc-engine.mjs",
       "npc-data-expansion.mjs",
+      "tools/dnd-loot-sqlite/**/*",
+      "!tools/dnd-loot-sqlite/**/node_modules/**",
       "package.json"
     ],
+    "extraResources": [
+      {
+        "from": "tools/dnd-loot-sqlite/dnd-loot.sqlite",
+        "to": "dnd-loot.sqlite"
+      }
+    ],
     "asarUnpack": [
-      "**/node_modules/better-sqlite3/**"
+      "**/node_modules/better-sqlite3/**",
+      "tools/dnd-loot-sqlite/**"
     ],
     "portable": {
       "artifactName": "ZernixDungeonAssistant-${version}-portable.${ext}"

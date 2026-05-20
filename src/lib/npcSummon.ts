@@ -1,5 +1,6 @@
-import { generateNpcAsync } from "../database.mjs";
+import { generateNpcAsync } from "../services/mocks/database.mjs";
 import type { AppContentJson, NpcPortrait, NpcTemplateEntry } from "../types/content";
+import { contextTagForBiome, getBiome } from "./zernixLocationCatalog";
 
 /** Сводка цен из npc-engine (сумма явных зм/см в строках услуг). */
 export interface NpcPricingRollup {
@@ -65,6 +66,8 @@ export interface NpcSummonForm {
   occupationValue: string;
   role: string;
   genderId: string;
+  /** Биом сессии / стола — для contextTag IPC и фильтра шаблонов в браузере */
+  biomeKey?: string;
 }
 
 /** Подписи карточки NPC (UI и шаринг). */
@@ -86,8 +89,30 @@ const OCCUPATION_TO_ENGINE_PROFESSION_ID: Record<string, string> = {
   merchant: "merchant",
   scholar: "sage",
   craftsman: "blacksmith",
+  blacksmith: "blacksmith",
   guard: "mercenary",
   rogue: "fence",
+  innkeeper: "innkeeper",
+  alchemist: "alchemist",
+  guide: "guide",
+  herbalist: "apothecary_dry",
+  apothecary: "apothecary_dry",
+  sailor: "shipwright",
+  fisher: "guide",
+  hunter: "guide",
+  priest: "temple_acolyte",
+  lawyer: "lawyer_guild",
+  smuggler: "smuggler_boss",
+  jeweler: "jeweler",
+  cooper: "cooper",
+  brewer: "brewer",
+  bookbinder: "bookbinder",
+  prospector: "guide",
+  witch: "cartomancer_nonmagic",
+  druid: "natural_philosopher",
+  survivalist: "guide",
+  trader: "merchant",
+  temple_acolyte: "temple_acolyte",
 };
 
 function pickPortrait(portraits: NpcPortrait[], gender: string): NpcPortrait {
@@ -208,11 +233,16 @@ function mapEnginePayloadToResolvedCard(
 function splitMotivationAndSecret(raw: string): { motivation: string; secret: string } {
   const t = String(raw).replace(/\s+/g, " ").trim();
   if (!t) return { motivation: "Ищет понятную выгоду без лишней огласки.", secret: "Скрывает слабое место, которое дорого могут купить." };
-  const m = /\b(Тайна|Секрет)\s*:\s*/i.exec(t);
-  const idx = m?.index ?? -1;
-  if (idx >= 0) {
-    const motivation = t.slice(0, idx).replace(/[.;,:]+$/g, "").trim();
-    const secret = t.slice(idx).replace(/^[^:]+:\s*/i, "").trim();
+  // JS regex `\b` — ASCII-only word-boundary и не срабатывает перед кириллицей,
+  // поэтому используем явный «безопасный» разделитель: начало строки или пробел/пунктуация.
+  const m = /(?:^|[\s.;:,—\-])(Тайна|Секрет)\s*:\s*/iu.exec(t);
+  if (m && typeof m.index === "number") {
+    const sepLen = m[0]!.length - (m[1]!.length + 1 + /\s*$/.exec(m[0]!)![0].length);
+    void sepLen;
+    // Срез делаем от начала захваченного слова «Тайна/Секрет», а не от пробела перед ним.
+    const headStart = m.index + (m[0]!.startsWith(m[1]!) ? 0 : 1);
+    const motivation = t.slice(0, headStart).replace(/[.;,:\-—\s]+$/g, "").trim();
+    const secret = t.slice(headStart).replace(/^[^:]+:\s*/i, "").trim();
     return {
       motivation: motivation || secret,
       secret: secret || motivation,
@@ -228,6 +258,19 @@ function pickNpcTemplate(npc: AppContentJson["npc"], form: NpcSummonForm): NpcTe
   let pool = templates.filter((x) => x.raceKey === form.race);
   if (!pool.length) pool = [...templates];
 
+  const biome = form.biomeKey ? getBiome(form.biomeKey) : null;
+  if (biome && biome.id !== "any") {
+    const byOcc = pool.filter((x) => {
+      const occMatch = biome.occupationAffinity.some((id) => {
+        const occ = npc.occupations.find((o) => o.value === id);
+        return occ && (x.occupationRu === occ.labelRu || form.occupationValue === id);
+      });
+      const tagMatch = (x.tags ?? []).some((t) => biome.monsterTags.includes(String(t)));
+      return occMatch || tagMatch;
+    });
+    if (byOcc.length) pool = byOcc;
+  }
+
   if (form.genderId === "female") {
     const sub = pool.filter((x) => /жен/i.test(x.genderRu));
     if (sub.length) pool = sub;
@@ -237,6 +280,61 @@ function pickNpcTemplate(npc: AppContentJson["npc"], form: NpcSummonForm): NpcTe
   }
 
   return pool[Math.floor(Math.random() * pool.length)] ?? null;
+}
+
+/**
+ * Имена под каждую известную UI-расу (мужские / женские).
+ * Используется, когда шаблон выбранной расы отсутствует в app-content.json
+ * и нужно «переодеть» донора-шаблон в подходящего расового NPC.
+ */
+const RACE_NAME_POOLS: Record<string, { male: string[]; female: string[] }> = {
+  human:     { male: ["Райн", "Калеб", "Йорик", "Тейн", "Орен", "Гаспар"],         female: ["Мара", "Лина", "Изольда", "Тея", "Иола", "Эстер"] },
+  elf:       { male: ["Тарион", "Селандор", "Лириан", "Аэлион", "Иллиан"],          female: ["Аэлин", "Сильвиэль", "Маэлис", "Нириэль", "Тинар"] },
+  dwarf:     { male: ["Борин", "Тордак", "Грумли", "Дварн", "Хорга"],               female: ["Хильд", "Брунна", "Тордис", "Гуна", "Ингваль"] },
+  halfling:  { male: ["Перри", "Финн", "Бромби", "Шкварн", "Ллойд"],                female: ["Поппи", "Розан", "Мильда", "Ниса", "Тилли"] },
+  dragonborn:{ male: ["Растор", "Васкар", "Тарганор", "Зарфир", "Хелдрак"],         female: ["Зэйра", "Виспара", "Талура", "Аркания", "Шорна"] },
+  tiefling:  { male: ["Морвин", "Аздан", "Лютий", "Кален", "Версаль"],              female: ["Морвен", "Иссара", "Лилит", "Венерия", "Шеррит"] },
+  gnome:     { male: ["Финбо", "Никси", "Гарбл", "Тимблтон", "Виксен"],             female: ["Гленди", "Бимба", "Никки", "Фло", "Меллита"] },
+  orc:       { male: ["Грунн", "Морга", "Кхазр", "Угрум", "Дрог"],                  female: ["Шура", "Грева", "Уфтра", "Жара", "Дрена"] },
+  goliath:   { male: ["Каврак", "Урдан", "Брамм", "Тенгин", "Айвен"],               female: ["Орика", "Хаурга", "Нелда", "Кейра", "Мирса"] },
+  aasimar:   { male: ["Кассиэль", "Илиан", "Орион", "Зорин", "Серан"],              female: ["Светана", "Аэрин", "Лучия", "Селена", "Иварра"] },
+};
+
+/** Лаконичный appearance, не противоречащий расе. Доставляет ремесло из occupation. */
+function appearanceForRace(raceValue: string, raceRu: string, occupationRu: string, seed: number): string {
+  const physical: Record<string, string[]> = {
+    human:     ["среднего роста, с обветренным лицом и спокойным взглядом", "коренастый, с короткой стрижкой и шрамом у виска", "высокий и сухощавый, плечи опущены от усталости"],
+    elf:       ["высокий и тонкокостный, серебристые пряди заплетены ремешком", "с миндалевидными глазами и тихой, плавной речью", "бледный, в светлых одеждах, кожа отливает прохладой"],
+    dwarf:     ["коренастый, с густой бородой, пахнущей дымом кузни", "широкоплечий, на руках — следы ожогов и старых сколов", "невысокий, но плотный, с медными бусинами в бороде"],
+    halfling:  ["низкорослый и быстрый, с лукавой улыбкой и босыми ногами", "коротконогий, в потёртом дорожном плаще, с курчавыми волосами", "невысокий, веснушчатый, в карманах слышно мелочь"],
+    dragonborn:["с чешуйчатой кожей цвета бронзы, гребень тянется по черепу", "массивный, с короткими рогами и хвостом, который шевелится сам по себе", "с матовой синей чешуёй и янтарными глазами"],
+    tiefling:  ["с лиловой кожей, изогнутыми рогами и хвостом, обвёрнутым кушаком", "глаза без зрачков светятся углями, в речи прорывается шипение", "с тонкими рожками и тенью, которая иногда отстаёт"],
+    gnome:     ["низенький и подвижный, с яркими бусинами в кудрях и хитринкой в глазах", "в очках с круглыми линзами, на пальцах чернильные пятна", "с птичьим темпом речи и заметной жестикуляцией"],
+    orc:       ["высокий и плечистый, нижние клыки выступают из-под губы", "с зеленовато-серой кожей и шрамами от ударов через лицо", "массивный, на руках — выбитые татуировки клана"],
+    goliath:   ["огромного роста, с серой кожей, расчерченной природными узорами", "плечи как у каменотёса, глаза горные — синие и холодные", "с гладко выбритой головой и татуировками-линиями по щекам"],
+    aasimar:   ["лицо чуть светится изнутри, в глазах золотистая искра", "с серебристыми волосами и едва различимыми крыльями-тенями за спиной", "со светящимся узором на коже, который проступает в волнении"],
+  };
+  const pool = physical[raceValue] ?? physical["human"]!;
+  const phys = pool[seed % pool.length]!;
+  const occ = occupationRu.trim() ? occupationRu.toLowerCase() : "путник";
+  return `${raceRu}, ${phys}. По манере — ${occ}: жест, взгляд и осанка выдают ремесло.`;
+}
+
+/** Простой стабильный хеш строки (FNV-1a 32-bit). */
+function fnvHash(s: string): number {
+  let h = 2166436261 >>> 0;
+  for (let i = 0; i < s.length; i += 1) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return h >>> 0;
+}
+
+function synthesizeNameForRace(race: string, genderPhysical: "male" | "female", seed: number): string {
+  const pool = RACE_NAME_POOLS[race];
+  const fallback = RACE_NAME_POOLS["human"]!;
+  const arr = pool ? pool[genderPhysical] : fallback[genderPhysical];
+  return arr[seed % arr.length]!;
 }
 
 function templateToResolvedCard(
@@ -254,19 +352,37 @@ function templateToResolvedCard(
 
   const { motivation, secret } = splitMotivationAndSecret(template.motivation);
 
+  // Если выбранная пользователем раса не совпадает с расой шаблона —
+  // переодеваем «донора»: новое имя из таблицы расы и нейтральный appearance,
+  // совместимый с выбранной расой. Сохраняем motivation/secret/inventory/role.
+  const raceMismatch = template.raceKey !== form.race;
+  const genderPhysical = resolvedGenderPhysical(form.genderId);
+  const seed = fnvHash(`${form.race}|${form.occupationValue}|${form.role}|${form.genderId}|${template.id ?? template.name}`);
+  const displayName = raceMismatch
+    ? synthesizeNameForRace(form.race, genderPhysical, seed)
+    : template.name;
+  const displayAppearance = raceMismatch
+    ? appearanceForRace(form.race, raceRu, occupationRu, seed >>> 3)
+    : template.appearance;
+  const displayGenderRu = raceMismatch
+    ? genderPhysical === "female"
+      ? "Жен."
+      : "Муж."
+    : template.genderRu;
+
   const mannerSeed =
     "Держится уверенно, отмечает детали среды и заранее прикидывает две линии отступления.";
 
-  const portraitPic = pickPortrait(npc.portraits, resolvedGenderPhysical(form.genderId));
+  const portraitPic = pickPortrait(npc.portraits, genderPhysical);
   const portrait = portraitPic.image ?? "";
 
   const markdownFull = [
-    `# ${template.name}`,
-    `- **Раса:** ${raceRu} · ${template.genderRu}`,
+    `# ${displayName}`,
+    `- **Раса:** ${raceRu} · ${displayGenderRu}`,
     `- **Роль:** ${roleLabelRu} · **Занятие:** ${occupationRu}`,
     "",
     "## Облик",
-    template.appearance,
+    displayAppearance,
     "",
     "## Мотивация",
     motivation,
@@ -281,13 +397,13 @@ function templateToResolvedCard(
   ].join("\n");
 
   return {
-    name: template.name,
+    name: displayName,
     epithet: "",
     raceRu,
-    genderRu: template.genderRu,
+    genderRu: displayGenderRu,
     roleLabelRu,
     occupationRu,
-    appearance: template.appearance,
+    appearance: displayAppearance,
     manner: mannerSeed,
     motivation,
     secret,
@@ -295,7 +411,7 @@ function templateToResolvedCard(
     inventory: template.inventory,
     portrait,
     dmQuick: {
-      visual: template.appearance.replace(/\s+/g, " ").trim().slice(0, 200),
+      visual: displayAppearance.replace(/\s+/g, " ").trim().slice(0, 200),
       wants: motivation.slice(0, 200),
       avoids: mannerSeed.slice(0, 160),
       secret: secret.slice(0, 200),
@@ -309,24 +425,34 @@ function templateToResolvedCard(
 /**
  * Electron / IPC (npc-engine) или браузер: шаблоны из контента (`npc.templates`) + задержка из `database.mjs`.
  */
+export type ResolveNpcCardResult = {
+  card: ResolvedNpcCard | null;
+  error?: string;
+};
+
 export async function resolveNpcCard(
   npc: AppContentJson["npc"],
   form: NpcSummonForm,
-): Promise<ResolvedNpcCard | null> {
-  if (!npc.races?.length) return null;
+): Promise<ResolveNpcCardResult> {
+  if (!npc.races?.length) {
+    return { card: null, error: "В контенте нет рас NPC." };
+  }
 
   const ipc = typeof window !== "undefined" ? window.electronAPI : undefined;
 
   if (typeof ipc?.generateNpc !== "function") {
     await generateNpcAsync();
     const tmpl = pickNpcTemplate(npc, form);
-    if (!tmpl) return null;
-    return templateToResolvedCard(tmpl, npc, form);
+    if (!tmpl) {
+      return { card: null, error: "Нет шаблонов NPC в app-content.json." };
+    }
+    return { card: templateToResolvedCard(tmpl, npc, form) };
   }
 
   const genderResolved = resolvedGenderPhysical(form.genderId);
   const professionId = OCCUPATION_TO_ENGINE_PROFESSION_ID[form.occupationValue] ?? "merchant";
   const partyRoleLabelRu = npc.roles.find((r) => r.value === form.role)?.labelRu ?? form.role;
+  const contextTag = contextTagForBiome(form.biomeKey ?? "any");
 
   try {
     const res = await ipc.generateNpc({
@@ -334,6 +460,7 @@ export async function resolveNpcCard(
       genderId: genderResolved,
       professionId,
       partyRoleLabelRu,
+      contextTag,
     });
     if (res.ok && res.data && typeof res.markdown === "string") {
       const card = mapEnginePayloadToResolvedCard(
@@ -342,13 +469,21 @@ export async function resolveNpcCard(
         npc,
         form,
       );
-      if (card) return card;
-    } else if (!res.ok) {
-      console.warn("[ZERNIX] generateNpc IPC:", res.error);
+      if (card) return { card };
+      return {
+        card: null,
+        error: "Движок вернул данные, но карточку собрать не удалось. Проверьте npc-engine.",
+      };
     }
+    if (!res.ok) {
+      const msg = res.error?.trim() || "Ошибка генерации NPC.";
+      console.warn("[ZERNIX] generateNpc IPC:", msg);
+      return { card: null, error: msg };
+    }
+    return { card: null, error: "Пустой ответ от генератора NPC." };
   } catch (e) {
-    console.warn("[ZERNIX] generateNpc IPC exception:", e);
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn("[ZERNIX] generateNpc IPC exception:", msg);
+    return { card: null, error: msg };
   }
-
-  return null;
 }

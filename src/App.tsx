@@ -1,6 +1,11 @@
 import "./ZernixTheme.css";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+
+import { getSectionBackgrounds } from "./lib/sectionBackgrounds";
+import { ZERNIX_ART } from "./lib/zernixArt";
+
+const SECTION_BG_ROTATION_MS = 14000;
 
 import { ZernixProfileModal, ZernixQuickSettingsModal } from "./components/ZernixDeskModals";
 import {
@@ -30,7 +35,7 @@ import {
   NpcCreatorView,
   SessionPrepView,
   SettingsView,
-} from "./zernix/ZernixViews";
+} from "./zernix/views";
 
 const NAV_CREATION: ReadonlyArray<{
   id: Exclude<ZernixViewId, "home" | "history" | "favorites" | "settings">;
@@ -105,6 +110,44 @@ export default function App() {
   const { setSelectedLootId } = useZernixGenerators();
   const { profile, toastMessage } = useZernixUserData();
 
+  const sectionImages = useMemo(() => getSectionBackgrounds(view), [view]);
+  const [bgIndex, setBgIndex] = useState(0);
+  const [bgPrevUrl, setBgPrevUrl] = useState<string | null>(null);
+  const lastUrlRef = useRef<string | null>(null);
+
+  const bgCurrentUrl = sectionImages.length > 0
+    ? sectionImages[bgIndex % sectionImages.length]
+    : null;
+
+  useEffect(() => {
+    setBgIndex(0);
+  }, [view]);
+
+  useEffect(() => {
+    if (bgCurrentUrl === lastUrlRef.current) return;
+    setBgPrevUrl(lastUrlRef.current);
+    lastUrlRef.current = bgCurrentUrl;
+  }, [bgCurrentUrl]);
+
+  useEffect(() => {
+    if (sectionImages.length < 2) return;
+    const id = window.setInterval(() => {
+      setBgIndex((i) => (i + 1) % sectionImages.length);
+    }, SECTION_BG_ROTATION_MS);
+    return () => window.clearInterval(id);
+  }, [sectionImages.length]);
+
+  const artStyle: CSSProperties = {
+    ["--zernix-home-dragon" as unknown as keyof CSSProperties]:
+      bgCurrentUrl ? `url("${bgCurrentUrl}")` : "none",
+    ["--zernix-home-dragon-prev" as unknown as keyof CSSProperties]:
+      bgPrevUrl ? `url("${bgPrevUrl}")` : "none",
+    ["--zernix-logo-dragon" as unknown as keyof CSSProperties]: `url("${ZERNIX_ART.logoDragon}")`,
+    ["--zernix-d20-art" as unknown as keyof CSSProperties]: `url("${ZERNIX_ART.d20Dice}")`,
+  } as CSSProperties;
+
+  const hasSectionBg = Boolean(bgCurrentUrl);
+
   function handleOpenLootCard(lootCardId: string) {
     setView("loot");
     setSelectedLootId(lootCardId);
@@ -170,7 +213,11 @@ export default function App() {
   }
 
   return (
-    <div className="zernix-app-root">
+    <div
+      className={`zernix-app-root${hasSectionBg ? " zernix-app-root--has-section-bg" : ""}`}
+      data-view={view}
+      style={artStyle}
+    >
       <ZernixProfileModal open={profileOpen} onClose={() => setProfileOpen(false)} />
       <ZernixQuickSettingsModal open={quickSettingsOpen} onClose={() => setQuickSettingsOpen(false)} />
 
@@ -183,6 +230,10 @@ export default function App() {
         <div className="zernix-bg-stack__art" />
         <div className="zernix-bg-stack__silhouette" />
         <div className="zernix-bg-stack__dragon" />
+        {/* Section dragon backdrop — driven by --zernix-home-dragon (current)
+            and --zernix-home-dragon-prev (outgoing) for smooth crossfade. */}
+        <div className="zernix-bg-stack__home-dragon-prev" key={`bgp-${bgPrevUrl ?? "none"}`} />
+        <div className="zernix-bg-stack__home-dragon" key={`bgc-${bgCurrentUrl ?? "none"}`} />
         <div className="zernix-bg-stack__ruins-mist" />
         <div className="zernix-bg-stack__fog" />
         <div className="zernix-bg-stack__mist-drift" />
@@ -196,7 +247,13 @@ export default function App() {
         <div className="zernix-bg-stack__runes" />
       </div>
 
-      <div className={`zernix-app-shell${view === "table" ? " zernix-app-shell--table" : ""}`}>
+      <div
+        className={`zernix-app-shell${view === "table" ? " zernix-app-shell--table" : ""}${
+          view === "home" ? " zernix-app-shell--home" : ""
+        }${view === "loot" ? " zernix-app-shell--loot" : ""}${
+          view === "npc" ? " zernix-app-shell--npc" : ""
+        }${view === "prep" ? " zernix-app-shell--prep" : ""}`}
+      >
         <aside className="zernix-region-sidebar">
           <div className="zernix-sidebar-inner">
             <div className="zernix-logo-slot" aria-label="Логотип ZERNIX" />
@@ -246,7 +303,10 @@ export default function App() {
               </button>
             ))}
 
-            <div className="zernix-d20-slot" aria-hidden title="d20_dice.png" />
+            <div className="zernix-sidebar-footer">
+              <div className="zernix-d20-slot" aria-hidden />
+              <p className="zernix-sidebar-credit">Developed ZERNOHKA</p>
+            </div>
           </div>
         </aside>
 
@@ -304,11 +364,13 @@ export default function App() {
           {main}
         </main>
 
-        <aside className="zernix-region-detail" aria-label="Кодекс и превью">
-          <div className="zernix-region-detail-inner">
-            <ZernixPreview view={view} conditionKey={conditionKey} />
-          </div>
-        </aside>
+        {view !== "home" && view !== "loot" && view !== "npc" && view !== "prep" ? (
+          <aside className="zernix-region-detail" aria-label="Кодекс и превью">
+            <div className="zernix-region-detail-inner">
+              <ZernixPreview view={view} conditionKey={conditionKey} />
+            </div>
+          </aside>
+        ) : null}
 
         <footer className="zernix-region-footer zernix-footer-bar">
           <span>ГОТОВ К ПРИКЛЮЧЕНИЮ</span>

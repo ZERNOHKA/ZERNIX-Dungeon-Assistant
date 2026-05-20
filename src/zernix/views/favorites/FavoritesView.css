@@ -1,0 +1,175 @@
+/*
+ * ZERNIX Favorites View Styles (Stage 4 extraction)
+ * Source: src/ZernixTheme.css
+ * Component: src/zernix/views/favorites/FavoritesView.tsx
+ * NOTE: Uses legacy zernix-* classes. Duplicated in ZernixTheme.css until wiring.
+ */
+
+/* --- Page container fade-in --- */
+.zernix-page {
+  animation: zernix-fade-in 0.6s var(--zx-ease-out) both;
+}
+
+/* --- Premium panel shell (shared legacy wrapper) --- */
+/* —— Premium panel —— */
+.zernix-premium-panel {
+  position: relative;
+  isolation: isolate;
+  border-radius: var(--zx-radius);
+  background-image:
+    radial-gradient(ellipse 120px 88px at 0 0, rgba(212, 169, 58, 0.09), transparent),
+    radial-gradient(ellipse 130px 96px at 100% 100%, rgba(212, 169, 58, 0.06), transparent),
+    radial-gradient(ellipse 90% 65% at 50% 0%, rgba(255, 255, 255, 0.03), transparent 52%),
+    var(--zx-noise-tile),
+    linear-gradient(180deg, rgba(18, 22, 34, 0.96), rgba(8, 10, 16, 0.98));
+  background-blend-mode: normal, normal, soft-light, overlay, normal;
+  background-size:
+    auto,
+    auto,
+    auto,
+    240px 240px,
+    auto;
+  border: 1px solid rgba(212, 169, 58, 0.35);
+  box-shadow:
+    var(--zx-float-shadow),
+    0 24px 56px rgba(0, 0, 0, 0.38);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.zernix-premium-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  box-shadow:
+    inset 0 0 0 1px rgba(212, 169, 58, 0.06),
+    inset 0 0 56px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.045);
+}
+
+.zernix-premium-panel::after {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: calc(var(--zx-radius) - 1px);
+  pointer-events: none;
+  z-index: 0;
+  background: linear-gradient(145deg, rgba(212, 169, 58, 0.07), transparent 42%, transparent 100%);
+  opacity: 0.85;
+}
+
+.zernix-premium-panel > * {
+  position: relative;
+  z-index: 1;
+}
+
+.zernix-panel-pad {
+  padding: 26px 28px 30px;
+}
+
+.zernix-panel-heading {
+  font-family: var(--zx-font-display);
+  font-size: 15px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--zx-gold-bright);
+  margin-bottom: 18px;
+  text-shadow: 0 0 24px rgba(212, 169, 58, 0.18);
+}
+
+/* --- Favorites grid, chips, remove buttons --- */
+
+.zernix-fav-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.zernix-fav-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(212, 169, 58, 0.22);
+  background: rgba(8, 10, 14, 0.55);
+  font-size: 12px;
+  color: var(--zx-text);
+}
+
+.zernix-fav-chip__icon {
+  width: 16px;
+  height: 16px;
+  color: var(--zx-gold-mid);
+  flex-shrink: 0;
+}
+
+.zernix-fav-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  width: 100%;
+}
+
+.zernix-fav-chip--grow {
+  flex: 1;
+  min-width: 0;
+  border-radius: 14px;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+
+.zernix-fav-chip__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.zernix-fav-chip__title {
+  font-size: 13px;
+  color: var(--zx-text);
+}
+
+.zernix-fav-chip__sub {
+  font-size: 11px;
+  color: var(--zx-text-dim);
+}
+
+.zernix-fav-remove {
+  width: 40px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  border: 1px solid rgba(212, 169, 58, 0.22);
+  background: rgba(8, 10, 14, 0.55);
+  color: var(--zx-text-dim);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.zernix-fav-remove:hover {
+  color: #fca5a5;
+  border-color: rgba(248, 113, 113, 0.35);
+}
+
+/* --- Codex prose (empty hint copy) --- */
+.zernix-codex__prose {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.68;
+  color: rgba(245, 230, 184, 0.9);
+}
+
+/* --- Empty state hint --- */
+.zernix-empty-hint {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: rgba(245, 230, 184, 0.72);
+}

@@ -12,9 +12,15 @@ function inferRarity(displayLine: string): string {
   const lower = displayLine.toLowerCase();
   if (/легендарн|legendary/i.test(lower)) return "Легендарный";
   if (/очень редк|very rare/i.test(lower)) return "Очень редкий";
-  if (/редк|rare(?!\w)/i.test(lower)) return "Редкий";
+  // «редкий» — но не «необычный» (порядок важен)
+  if (/\bредк|\bрейр|rare(?!\w)/i.test(lower) && !/необычн|uncommon/i.test(lower)) return "Редкий";
   if (/необычн|uncommon/i.test(lower)) return "Необычный";
   if (/обычн|common/i.test(lower)) return "Обычный";
+  // Вторичные признаки по ключевым словам D&D 5e
+  if (/\+3|\bартефакт|artifact/i.test(lower)) return "Легендарный";
+  if (/\+2|семь |seven /i.test(lower)) return "Очень редкий";
+  if (/\+1|зелье великан|посох|staff|wand жезл/i.test(lower)) return "Редкий";
+  if (/зелье|potion|свиток|scroll|кольцо|ring|пояс|belt/i.test(lower)) return "Необычный";
   return "—";
 }
 

@@ -11,7 +11,7 @@
  */
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { app } from "electron";
+import { resolveDndLootSqlitePath } from "./sqlite-path.mjs";
 import {
   openLootDatabase,
   setLootDatabasePath,
@@ -226,13 +226,7 @@ async function buildContextualNarrativeLoot(database, d, environment, rng, party
 }
 
 export function resolveLootSqlitePathForElectron() {
-  if (process.env.DND_LOOT_DB && String(process.env.DND_LOOT_DB).trim().length > 0) {
-    return path.resolve(process.env.DND_LOOT_DB);
-  }
-  if (app.isPackaged) {
-    return path.join(process.resourcesPath, "dnd-loot.sqlite");
-  }
-  return path.join(__dirname, "..", "tools", "dnd-loot-sqlite", "dnd-loot.sqlite");
+  return resolveDndLootSqlitePath();
 }
 
 /**

@@ -5,6 +5,19 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   base: "./",
   plugins: [react()],
+  build: {
+    target: "es2020",
+    minify: "esbuild",
+    cssMinify: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ["react", "react-dom"],
+          markdown: ["react-markdown", "remark-breaks", "rehype-raw"],
+        },
+      },
+    },
+  },
   server: {
     port: 8081,
     strictPort: true,
