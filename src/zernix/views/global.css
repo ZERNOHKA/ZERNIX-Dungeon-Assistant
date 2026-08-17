@@ -89,7 +89,10 @@
 .zernix-bg-stack__art {
   position: absolute;
   inset: -10%;
-  background-image: url("/zernix-hero-bg.png");
+  background-image:
+    radial-gradient(circle at 72% 18%, rgb(184 146 72 / 18%), transparent 34%),
+    radial-gradient(circle at 18% 76%, rgb(83 24 32 / 24%), transparent 38%),
+    linear-gradient(145deg, #100d0d 0%, #18100f 46%, #08090c 100%);
   background-size: cover;
   background-position: 58% 28%;
   filter: blur(4px) saturate(0.72) contrast(1.14) brightness(0.88);
@@ -108,8 +111,7 @@
   }
 }
 
-/* Когда у раздела есть свой фон (src/assets/backgrounds/<section>/),
-   не дублируем картинку вторым слоем из public/zernix-hero-bg.png. */
+/* Когда у раздела есть свой фон, резервный атмосферный слой скрывается. */
 .zernix-app-root--has-section-bg .zernix-bg-stack__art,
 .zernix-app-root--has-section-bg .zernix-bg-stack__silhouette {
   opacity: 0 !important;
@@ -497,7 +499,7 @@
   animation: zernix-fade-in 0.72s var(--zx-ease-out) both;
 }
 
-/* Respect reduced motion — ship-quality accessibility */
+/* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .zernix-bg-stack__art,
   .zernix-bg-stack__silhouette,

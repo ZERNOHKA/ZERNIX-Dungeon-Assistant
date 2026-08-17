@@ -1145,25 +1145,6 @@ input[type="checkbox"].zernix-checkbox:focus-visible {
   color: var(--zx-text);
 }
 
-.zernix-codex-scroll {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  margin-right: -6px;
-  padding-right: 6px;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(212, 169, 58, 0.45) transparent;
-}
-
-.zernix-codex-scroll::-webkit-scrollbar {
-  width: 6px;
-}
-
-.zernix-codex-scroll::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, rgba(224, 184, 77, 0.55), rgba(140, 110, 50, 0.45));
-  border-radius: 100px;
-}
-
 .zernix-codex__parchment {
   border-radius: calc(var(--zx-radius) - 8px);
   border: 1px solid rgba(212, 169, 58, 0.22);
@@ -1307,36 +1288,6 @@ input[type="checkbox"].zernix-checkbox:focus-visible {
   background: #3d9a5a;
   box-shadow: 0 0 12px rgba(61, 154, 90, 0.45);
 }
-
-.zernix-fade-in {
-  animation: zernix-fade-in 0.72s var(--zx-ease-out) both;
-}
-
-/* Respect reduced motion — ship-quality accessibility */
-@media (prefers-reduced-motion: reduce) {
-  .zernix-bg-stack__art,
-  .zernix-bg-stack__silhouette,
-  .zernix-bg-stack__mist-drift,
-  .zernix-bg-stack__fog-deep,
-  .zernix-bg-stack__smoke,
-  .zernix-bg-stack__smoke-wisp,
-  .zernix-bg-stack__embers,
-  .zernix-bg-stack__runes {
-    animation: none !important;
-  }
-
-  .zernix-nav-btn.is-active {
-    animation: none !important;
-  }
-
-  .zernix-app-shell,
-  .zernix-page,
-  .zernix-fade-in {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-  }
-}
-
 
 /* --- Table mode, legacy home blocks, UX pass --- */
 /* —— Table mode: second monitor / tablet —— */

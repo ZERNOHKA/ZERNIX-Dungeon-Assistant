@@ -190,7 +190,6 @@ export function sanitizeSessionBrief(raw: SessionBrief): SessionBrief {
   return b;
 }
 
-/** Очистка сырого markdown до разбора секций (убирает протечки промпта вне заголовков). */
 export function sanitizeSessionMarkdownBody(md: string): string {
   const raw = tidy(md.replace(/\r\n?/g, "\n"));
   if (!raw) return "";

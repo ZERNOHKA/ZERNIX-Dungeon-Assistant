@@ -88,10 +88,6 @@ async function runMockSessionGeneration(form: SessionFormBridge): Promise<Sessio
   const enemyA = pickFromBiome(form.environmentKey, biomeDef.enemyLines, salt >>> 7);
   const enemyB = pickFromBiome(form.environmentKey, biomeDef.enemyLines, salt >>> 11);
   const rewardHint = pickFromBiome(form.environmentKey, biomeDef.rewardHints, salt >>> 13);
-  // ZernixGeneratorsContext.generateSession() передаёт сюда уже собранный LLM-промпт
-  // (`composeSessionEnvironmentText`). В IPC-режиме это идёт в Electron-движок,
-  // но для mock-ветки промпт нельзя пускать в hook/atmosphere/encounterPitch —
-  // используем `sanitizeSessionParagraph`, которая срезает «Сгенерируй …», «Партия: …» и т.п.
   const userCtx = sanitizeSessionParagraph(form.environmentText ?? "").trim();
 
   const titles = [
@@ -164,9 +160,6 @@ async function runMockSessionGeneration(form: SessionFormBridge): Promise<Sessio
       userCtx.slice(0, 220) ||
       "Слух ведёт к сделке, которую можно принять дважды и уплатить один раз — если повезёт.",
   };
-  // Перед возвратом прогоняем через зачистку — на случай если userCtx
-  // содержал служебные «промптовые» осколки (после sanitizeSessionParagraph они
-  // должны уйти, но это вторая линия защиты для UI-превью).
   const sessionBrief = sanitizeSessionBrief(rawBrief);
 
   const md = [
