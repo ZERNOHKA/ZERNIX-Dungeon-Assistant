@@ -563,13 +563,10 @@ function pickItem({ partyLevel, playerCount, difficulty, environment, biomeId, o
     return true;
   }
 
-  // Progressive fallback: loosen constraints until we get a non-empty pool
   let pool = LOOT_DATASET.filter((item) => matches(item, true,  true,  true));
   if (pool.length === 0) pool = LOOT_DATASET.filter((item) => matches(item, true,  false, true));
   if (pool.length === 0) pool = LOOT_DATASET.filter((item) => matches(item, true,  false, false));
-  // If still empty (e.g. only "potion" selected but rarity tier has none), relax rarity
   if (pool.length === 0) pool = LOOT_DATASET.filter((item) => matches(item, false, false, false));
-  // Last resort: return any item from the entire dataset
   if (pool.length === 0) pool = [...LOOT_DATASET];
 
   const item = pool[Math.floor(Math.random() * pool.length)];
@@ -614,12 +611,10 @@ export async function generateLootAsync(opts = {}) {
   return { ...item, goldLine };
 }
 
-/** Заглушка задержки для NPC в браузере. */
 export async function generateNpcAsync() {
   await delay();
 }
 
-/** Заглушка задержки для сессии в браузере. */
 export async function generateSessionAsync() {
   await delay();
 }

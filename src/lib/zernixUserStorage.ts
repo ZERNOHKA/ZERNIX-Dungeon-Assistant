@@ -50,7 +50,6 @@ export type DmSessionBlock = {
   active: boolean;
   startedAt: number;
   timeline: DmTimelineEntry[];
-  /** Название и параметры стола (не из JSON-заглушки). */
   meta?: PlaySessionMeta;
   /** Отряд с HP — обновляется на главной в реальном времени. */
   party?: PlaySessionMember[];

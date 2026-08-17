@@ -56,14 +56,6 @@ electron/
 
 **В браузере** (`npm run dev`) — fallback на `src/services/mocks/database.mjs`.
 
-## Архив (не подключён к App.tsx)
-
-```
-archive/legacy-mobile-ui/    # Старый mobile/Tailwind UI (экраны screens/*)
-zernix-academic-mvp/         # Отдельный учебный прототип
-zernix-dungeon-mvp/          # Минимальный прототип
-```
-
 ## Поток данных
 
 ```
