@@ -1,5 +1,7 @@
 # ZERNIX Dungeon Assistant
 
+[![CI](https://github.com/ZERNOHKA/ZERNIX-Dungeon-Assistant/actions/workflows/ci.yml/badge.svg)](https://github.com/ZERNOHKA/ZERNIX-Dungeon-Assistant/actions/workflows/ci.yml)
+
 > Публичный портфолио-срез продукта ZERNIX. Активная разработка ведётся в закрытом репозитории, актуальное веб-приложение доступно на **[zernix.ru](https://zernix.ru)**.
 
 ZERNIX Dungeon Assistant — продуктовый инструмент для мастеров настольных ролевых игр с фокусом на **D&D 2024**. Он сокращает путь от черновой идеи до материала, который можно использовать за игровым столом:
@@ -70,7 +72,7 @@ UI, генераторы, desktop-интеграция и доступ к дан
 
 ## Локальный запуск публичной версии
 
-Потребуются актуальная LTS-версия Node.js и npm.
+Потребуются Node.js **22.18+** (линия Node 22 используется в CI) и npm. Нативный модуль SQLite устанавливается через `postinstall`, поэтому при обычной установке не отключайте install-скрипты.
 
 ```bash
 npm ci
@@ -90,6 +92,22 @@ npm run electron
 ```
 
 Часть desktop-ресурсов базы данных намеренно не включена в публичный срез. Доступные сценарии сборки и проверки перечислены в `package.json` и `scripts/`.
+
+## Проверки перед изменениями
+
+```bash
+npm test
+npm run build
+```
+
+| Команда | Что проверяет |
+| --- | --- |
+| `npm run test:storage` | Загрузку профиля и заметок, старый формат профиля, повреждённый JSON и недоступное хранилище |
+| `npm run npc:test` | Smoke-запуск генератора NPC с выводом одного результата |
+| `npm run typecheck` | Проверку TypeScript |
+| `npm run build` | Проверку TypeScript и production-сборку интерфейса |
+
+GitHub Actions выполняет `npm test` и сборку на Windows при push в `main` и для pull requests. Эти проверки не заменяют ручной запуск Electron с полным набором SQLite-ресурсов.
 
 ## Структура репозитория
 

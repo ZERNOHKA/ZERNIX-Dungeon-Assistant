@@ -212,9 +212,11 @@ function mergeBundle(raw: unknown): ZernixUserBundle {
     settings.autoSaveNotes = d.settings.autoSaveNotes !== undefined ? Boolean(d.settings.autoSaveNotes) : true;
   }
 
+  const rawProfile = p.profile && typeof p.profile === "object" ? p.profile : undefined;
   const profile: ZernixProfile = {
-    ...d.profile,
-    ...(p.profile && typeof p.profile === "object" ? (p.profile as ZernixProfile) : {}),
+    displayName: typeof rawProfile?.displayName === "string" ? rawProfile.displayName : d.profile.displayName,
+    avatarDataUrl: typeof rawProfile?.avatarDataUrl === "string" ? rawProfile.avatarDataUrl : d.profile.avatarDataUrl,
+    affiliation: typeof rawProfile?.affiliation === "string" ? rawProfile.affiliation : d.profile.affiliation,
   };
 
   let dmSession: DmSessionBlock = d.dmSession;
