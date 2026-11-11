@@ -16,6 +16,14 @@ ZERNIX Dungeon Assistant — продуктовый инструмент для 
 - Разделил интерфейс и логику генерации сессий, персонажей и наград.
 - Для desktop-версии связал интерфейс с локальным хранением SQLite через Electron IPC.
 
+## Генерация награды и сохранение в избранное
+
+1. Мастер задаёт параметры и нажимает кнопку генерации в [React-интерфейсе](https://github.com/ZERNOHKA/ZERNIX-Dungeon-Assistant/blob/b78142ede849bd4fb98e2828a3916c83972eadd4/src/zernix/views/loot/LootGeneratorView.tsx#L224-L233).
+2. В desktop-версии [клиентский адаптер](https://github.com/ZERNOHKA/ZERNIX-Dungeon-Assistant/blob/b78142ede849bd4fb98e2828a3916c83972eadd4/src/zernix/generators/lootBridge.ts#L150-L165) вызывает обработчик через Electron IPC. [Генератор](https://github.com/ZERNOHKA/ZERNIX-Dungeon-Assistant/blob/b78142ede849bd4fb98e2828a3916c83972eadd4/electron/loot-core.mjs#L271-L310) использует SQLite как источник предметов.
+3. После получения результата интерфейс показывает карточку. Кнопка «В избранное» обновляет [данные пользователя](https://github.com/ZERNOHKA/ZERNIX-Dungeon-Assistant/blob/b78142ede849bd4fb98e2828a3916c83972eadd4/src/context/ZernixUserDataContext.tsx#L127-L161), которые сохраняются в [localStorage](https://github.com/ZERNOHKA/ZERNIX-Dungeon-Assistant/blob/b78142ede849bd4fb98e2828a3916c83972eadd4/src/lib/zernixUserStorage.ts#L261-L264).
+
+**Backend.** Node.js, Express, REST API и SQL (SQLite). [Маршрут `POST /api/v1/generate-loot`](https://github.com/ZERNOHKA/ZERNIX-Dungeon-Assistant/blob/b78142ede849bd4fb98e2828a3916c83972eadd4/electron/zernix-api-server.cjs#L43-L65) предоставляет HTTP-доступ к генерации: проверяет API-ключ, вызывает обработчик и возвращает результат в JSON. Desktop-интерфейс обращается к генератору через IPC.
+
 ## Возможности публичной версии
 
 - Подготовка сессий и переиспользуемых session briefs
